@@ -1,0 +1,50 @@
+# Environment variables
+.env
+.env.*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ChromaDB vector database
+chroma_db/
+chroma.sqlite3
+
+# IDE settings
+.vscode/
+
+# OS-generated files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Testing and coverage
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Git
