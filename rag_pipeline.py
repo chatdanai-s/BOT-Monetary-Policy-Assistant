@@ -8,6 +8,7 @@ from tqdm import tqdm
 import hashlib
 import os
 import sys
+from datetime import datetime
 
 from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
@@ -25,7 +26,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 DOCS_DIR = str(SCRIPT_DIR / "documents")          # Put your PDFs and files here
 CHROMA_DIR = str(SCRIPT_DIR / "chroma_db")        # Where vectors are saved
 EMBED_MODEL = "nomic-embed-text"  # Embedding model (adjustable)
-CHAT_MODEL = "qwen3:4b"           # Chat model (adjustable)
+CHAT_MODEL = "qwen3:4b-instruct"  # Chat model (adjustable)
 CHUNK_SIZE = 1000                 # Characters per chunk
 CHUNK_OVERLAP = 200               # Overlap between chunks
 COLLECTION_NAME = "bot_mpr_documents"
@@ -114,15 +115,15 @@ def load_vector_store():
 
 
 def format_docs(docs):
-    """Format retrieved chunks with source citations."""
+    """Format retrieved chunks with source citations, sorted chronologically."""
+
+    docs = sorted(docs, key=lambda d: d.metadata.get("citation", ""))
 
     return "\n\n".join(
-        f"Source: {doc.metadata.get('citation', 'Unknown Source')}\n"
+        f"Source: [{doc.metadata.get('citation', 'Unknown Source')}]\n"
         f"Content:\n{doc.page_content}"
         for doc in docs
     )
-
-
 
 
 def query_documents(vector_store, question):
@@ -139,80 +140,72 @@ def query_documents(vector_store, question):
     )
 
     # Initialize LLM
-    llm = ChatOllama(model=CHAT_MODEL)
+    llm = ChatOllama(
+        model=CHAT_MODEL,
+        temperature=0.2,
+    )
 
     # Prompt template for RAG system
     prompt = ChatPromptTemplate.from_template(
         """
-You are a financial and economic research assistant specializing in
-Thailand's monetary policy and macroeconomic conditions.
-
-Your primary knowledge source consists of the Bank of Thailand (BOT)
-quarterly monetary policy reports since 2013 Q1.
+You are a financial and research assistant for Thailand's monetary policy and
+macroeconomy. Your ONLY knowledge source is the Bank of Thailand (BOT) quarterly
+monetary policy reports (MPR), 2013 Q1 onward.
 
 Answer the user's question using ONLY the retrieved context.
 
-INSTRUCTIONS:
+Prompts may include questions about the future, which you must answer based
+on the most recent MPR available, closest to today's date of {today}.
 
-1. Factual accuracy
-- Do not introduce facts, statistics, or assumptions that are not
-  supported by the retrieved context.
-- Do not fabricate economic indicators, figures, dates, or policy decisions.
-- If the retrieved context is insufficient, explicitly state what
-  information is missing.
-- Distinguish between reported facts, economic interpretations, and
-  forward-looking assessments.
+RULES
+1. Use ONLY the text under CONTEXT. Never add facts, statistics, assumptions,
+   figures, or dates from your own knowledge.
+2. If the context does not answer the question, reply exactly:
+   "The provided reports do not contain this information."
+   Then state briefly what is missing. Do not guess.
+3. Every sentence containing a fact or number must always end with a citation.
+   Never invent a citation. If multiple sources support a claim, cite each relevant source.
+   Example: Headline inflation averaged 1.2% in 2024 [Source: MPR_2025_Q1, PDF p. 14].
+4. Include relevant numerical evidence where available.
+   Keep units and periods exactly as reported. Always state whether a change
+   is year-on-year (YoY) or quarter-on-quarter (QoQ) when the source says so.
+5. Each report is dated by its name (MPR_YYYY_QN). Compare that date with
+   today's date: forecasts from past periods are historical, not current.
+   When reports conflict, prefer the most recent one and state its period.
+6. Do not explain causes or implications unless the context states them.
 
-2. Financial and economic analysis
-- Pay attention to monetary policy, inflation, GDP growth, interest rates,
-  exchange rates, household debt, employment, consumption, investment,
-  exports, and financial stability.
-- Preserve the units, time periods, and economic definitions of reported
-  statistics.
-- When comparing economic indicators, identify the relevant periods.
-- Distinguish between year-on-year (YoY) and quarter-on-quarter (QoQ)
-  changes whenever applicable.
-- Do not interpret correlation as causation.
+FORMAT
+- First sentence: the direct answer. Do not start with a bullet.
+- Then bullets for supporting points, each with a number and period if available.
+- Last line: "Summary:" followed by one sentence.
+- Maximum 500 words. Do not mention "context" or "retrieved text" in the answer.
+- Citation format: [Source: MPR_YYYY_QN, PDF p. X]
 
-3. Citation requirements
-- Cite every factual claim using the provided source metadata.
-- Use this citation format:
-  [Source: MPR_YYYY_QN, PDF p. X]
-- If multiple sources support a claim, cite each relevant source.
-- Never invent page numbers or source filenames.
-- If citation metadata is unavailable, explicitly state that the source
-  reference could not be identified.
-
-4. Response structure
-- Start with a direct answer to the question.
-- Use bullet points when explaining multiple economic factors.
-- Include relevant numerical evidence where available.
-- Explain economic implications only when supported by the context.
-- End with a short summary of the main findings.
-- Do not use generic citation wordings like "as documented in the monetary policy reports,"
-  "context," "the retrieved context," or "supported by context."
-
-RETRIEVED CONTEXT:
+CONTEXT
 {context}
 
-USER QUESTION:
+QUESTION
 {question}
 
-ANSWER:
+ANSWER
 """
     )
 
     # Build the RAG chain
     chain = (
         {"context": retriever | format_docs,
-         "question": RunnablePassthrough()
+         "question": RunnablePassthrough(),
+         "today": lambda _: datetime.now().strftime('%Y-%B-%d')
         }
         | prompt
         | llm
         | StrOutputParser()
     )
 
-    return chain.invoke(question)
+    # Stream output tokens to the console
+    for token in chain.stream(question):
+        print(token, end="", flush=True)
+    print()
 
 
 # UX Part
@@ -229,7 +222,8 @@ if __name__ == "__main__":
     else:
         # Load the existing store and start a question loop
         store = load_vector_store()
-        print(f"\nBOT Monetary Policy RAG system ready. Model: {CHAT_MODEL}")
+        print(f"\nBOT Monetary Policy RAG system ready.")
+        print(f"Model: {CHAT_MODEL}. Embedding: {EMBED_MODEL}.")
         print("Type your questions (Ctrl+C to exit):\n")
 
         while True:
@@ -238,8 +232,11 @@ if __name__ == "__main__":
                 if not question:
                     continue
                 print("\nSearching documents and generating answer...\n")
-                answer = query_documents(store, question)
-                print(f"A: {answer}\n")
+
+                print("A: ", end="")
+                query_documents(store, question)
+                print()
+            
             except KeyboardInterrupt:
                 print("\nGoodbye.")
                 break
