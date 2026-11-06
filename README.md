@@ -1,7 +1,7 @@
-# BOT Monetary Policy Report RAG Chatbot
+# BOT Monetary Policy Report RAG Assistant
 
-A local retrieval-augmented generation (RAG) system for answering questions about the Bank of Thailand (BOT) quarterly Monetary Policy Reports (MPR), from 2013 Q1 onward.
-(https://www.bot.or.th/en/our-roles/monetary-policy/mpc-publication/Monetary-Policy-Report/mpr-previous-reports.html)
+A local retrieval-augmented generation (RAG) assistant for answering questions about the Bank of Thailand (BOT) quarterly Monetary Policy Reports (MPR), from 2013 Q1 onward
+(https://www.bot.or.th/en/our-roles/monetary-policy/mpc-publication/Monetary-Policy-Report/mpr-previous-reports.html).
 Answers are generated only from retrieved report text and include citations to the source report and PDF page.
 
 The system runs entirely locally through Ollama, with zero API costs.
@@ -65,8 +65,6 @@ ollama pull qwen3:4b-instruct
 
 2. **Install the Python packages**
 
-Packages imported by the scripts:
-
 ```text
 pip install langchain-community langchain-text-splitters langchain-core langchain-ollama langchain-chroma pypdf tqdm requests
 ```
@@ -105,7 +103,7 @@ python rag_pipeline.py
 ## Architecture
 
 ```text
-   scrape_BOT_MPR.py (BOT website → documents/*.pdf)
+ scrape_BOT_MPR.py (BOT website → documents/*.pdf)
                       │
                       ▼
           PyPDFLoader (PDF → pages)
