@@ -25,10 +25,10 @@ from langchain_ollama import ChatOllama
 SCRIPT_DIR = Path(__file__).resolve().parent
 DOCS_DIR = str(SCRIPT_DIR / "documents")          # Put your PDFs and files here
 CHROMA_DIR = str(SCRIPT_DIR / "chroma_db")        # Where vectors are saved
-EMBED_MODEL = "nomic-embed-text"  # Embedding model (adjustable)
-CHAT_MODEL = "qwen3:4b-instruct"  # Chat model (adjustable)
-CHUNK_SIZE = 1000                 # Characters per chunk
-CHUNK_OVERLAP = 200               # Overlap between chunks
+EMBED_MODEL = "qwen3-embedding:0.6b"    # Embedding model (adjustable)
+CHAT_MODEL = "qwen3:4b-instruct"        # Chat model (adjustable)
+CHUNK_SIZE = 2000                 # Characters per chunk
+CHUNK_OVERLAP = 300               # Overlap between chunks
 COLLECTION_NAME = "bot_mpr_documents"
 
 
@@ -142,7 +142,9 @@ def query_documents(vector_store, question):
     # Initialize LLM
     llm = ChatOllama(
         model=CHAT_MODEL,
-        temperature=0.2,
+        temperature=0.1,
+        num_ctx=8192,
+        num_predict=2048
     )
 
     # Prompt template for RAG system

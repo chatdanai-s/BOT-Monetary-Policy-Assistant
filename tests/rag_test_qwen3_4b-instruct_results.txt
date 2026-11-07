@@ -1,0 +1,91 @@
+RAG TEST RESULTS
+Date                : 2026-11-07 17:09:43
+Chat model          : qwen3:4b-instruct
+Embedding model     : qwen3-embedding:0.6b
+Judge model         : qwen3:4b-instruct
+Chunk size/overlap  : 2000/300
+Retriever           : MMR k=8 fetch_k=30 lambda_mult=0.7
+QA file             : qa_pairs.json
+Questions           : 39 (completed 33, errors 6)
+Chunk match rule    : same citation and (normalized text equal or word Jaccard >= 0.9)
+
+RETRIEVAL (exact gold chunk)
+Hit@1 (= Recall@1)                      18.2%  (6/33)  95% CI [8.6, 34.4]
+Hit@3 (= Recall@3)                      36.4%  (12/33)  95% CI [22.2, 53.4]
+Hit@5 (= Recall@5)                      48.5%  (16/33)  95% CI [32.5, 64.8]
+Hit@8 (= Recall@8)                      48.5%  (16/33)  95% CI [32.5, 64.8]
+MRR                                     0.2899
+nDCG@1                                  0.1818
+nDCG@3                                  0.2886
+nDCG@5                                  0.3381
+nDCG@8                                  0.3381
+
+RETRIEVAL (gold page, citation only)
+Page Hit@1                              18.2%  (6/33)  95% CI [8.6, 34.4]
+Page Hit@3                              36.4%  (12/33)  95% CI [22.2, 53.4]
+Page Hit@5                              51.5%  (17/33)  95% CI [35.2, 67.5]
+Page Hit@8                              51.5%  (17/33)  95% CI [35.2, 67.5]
+Page MRR                                0.2975
+
+ANSWER QUALITY
+Answer correctness (LLM judge)          24.2%  (8/33)  95% CI [12.8, 41.0]
+Judge failures (excluded)                    0
+Correctness | gold chunk retrieved      43.8%  (7/16)  95% CI [23.1, 66.8]
+Correctness | gold chunk missed          5.9%  (1/17)  95% CI [1.0, 27.0]
+End-to-end success (hit and correct)    21.2%  (7/33)  95% CI [10.7, 37.8]
+Token F1 vs reference (mean)            0.4392
+ROUGE-L F1 vs reference (mean)          0.2764
+Numeric recall vs reference (mean)      0.5945
+Refusal rate                             3.0%  (1/33)  95% CI [0.5, 15.3]
+
+CITATIONS AND FORMAT
+Gold citation present in answer         42.4%  (14/33)  95% CI [27.2, 59.2]
+Citation precision (in retrieved set)   97.8%  (44/45)  95% CI [88.4, 99.6]
+Hallucinated citation rate               2.2%  (1/45)  95% CI [0.4, 11.6]
+Format compliance                       75.8%  (25/33)  95% CI [59.0, 87.2]
+
+LATENCY (seconds)
+End-to-end mean / p50 / p95           6.73 / 6.45 / 13.12
+Retrieval mean / p50 / p95            0.14 / 0.05 / 0.07
+
+PER QUESTION
+idx  chunk_rank  page_rank  judge  tokF1  gold_cite  refused
+1    5           5          0      0.477  1          0
+2    1           1          0      0.579  1          0
+3    -           -          0      0.455  0          0
+4    ERROR: request (5052 tokens) exceeds the available context size (4096 tokens), try incr
+5    1           1          0      0.465  0          0
+6    -           -          0      0.383  0          0
+7    1           1          0      0.585  1          0
+8    ERROR: request (4117 tokens) exceeds the available context size (4096 tokens), try incr
+9    ERROR: request (4405 tokens) exceeds the available context size (4096 tokens), try incr
+10   1           1          1      0.579  1          0
+11   -           -          0      0.375  0          0
+12   ERROR: request (4422 tokens) exceeds the available context size (4096 tokens), try incr
+13   -           -          0      0.460  0          0
+14   1           1          1      0.341  1          0
+15   2           2          0      0.256  0          1
+16   -           -          1      0.323  0          0
+17   4           4          1      0.518  1          0
+18   2           2          0      0.578  1          0
+19   2           2          1      0.629  1          0
+20   4           4          1      0.633  1          0
+21   -           -          0      0.423  0          0
+22   -           -          0      0.396  0          0
+23   2           2          0      0.671  1          0
+24   -           4          0      0.430  0          0
+25   -           -          0      0.267  0          0
+26   3           3          0      0.453  1          0
+27   -           -          0      0.155  0          0
+28   -           -          0      0.445  0          0
+29   -           -          0      0.369  0          0
+30   ERROR: request (4144 tokens) exceeds the available context size (4096 tokens), try incr
+31   -           -          0      0.417  0          0
+32   -           -          0      0.338  0          0
+33   1           1          0      0.455  1          0
+34   3           3          1      0.494  1          0
+35   -           -          0      0.446  0          0
+36   -           -          0      0.097  0          0
+37   ERROR: request (4348 tokens) exceeds the available context size (4096 tokens), try incr
+38   5           5          1      0.521  1          0
+39   -           -          0      0.480  0          0
