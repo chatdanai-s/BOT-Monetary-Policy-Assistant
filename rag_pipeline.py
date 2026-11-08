@@ -1,3 +1,4 @@
+# General imports
 from pathlib import Path
 import warnings
 warnings.filterwarnings(
@@ -10,11 +11,21 @@ import os
 import sys
 from datetime import datetime
 
+# Directory loading and vector storage
 from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_ollama import OllamaEmbeddings
 from langchain_chroma import Chroma
 
+# Hybrid retrieval
+from langchain_community.retrievers import BM25Retriever
+from langchain_classic.retrievers import EnsembleRetriever
+import re
+from sentence_transformers import CrossEncoder
+from langchain_core.documents import Document
+from langchain_core.runnables import RunnableLambda
+
+# Chat imports
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
@@ -25,10 +36,14 @@ from langchain_ollama import ChatOllama
 SCRIPT_DIR = Path(__file__).resolve().parent
 DOCS_DIR = str(SCRIPT_DIR / "documents")          # Put your PDFs and files here
 CHROMA_DIR = str(SCRIPT_DIR / "chroma_db")        # Where vectors are saved
-EMBED_MODEL = "qwen3-embedding:0.6b"    # Embedding model (adjustable)
-CHAT_MODEL = "qwen3:4b-instruct"        # Chat model (adjustable)
-CHUNK_SIZE = 2000                 # Characters per chunk
-CHUNK_OVERLAP = 300               # Overlap between chunks
+EMBED_MODEL = "qwen3-embedding:0.6b"        # Embedding model (adjustable)
+CHAT_MODEL = "qwen3:4b-instruct"            # Chat model (adjustable)
+RERANK_MODEL = "BAAI/bge-reranker-v2-m3"    # Reranking model (adjustable)
+
+K_RETRIEVE = 20         # candidates fetched by EACH retriever (BM25 and dense)
+TOP_K = 8               # chunks kept after reranking
+CHUNK_SIZE = 1000       # Characters per chunk
+CHUNK_OVERLAP = 200     # Overlap between chunks
 COLLECTION_NAME = "bot_mpr_documents"
 
 
@@ -114,10 +129,38 @@ def load_vector_store():
     )
 
 
+def build_retriever(vector_store):
+    """Build BM25 + dense + reranker once. Returns retrieve(question, k_retrieve, top_k)."""
+    data = vector_store.get(include=["documents", "metadatas"])
+    docs = [
+        Document(page_content=t, metadata=m)
+        for t, m in zip(data["documents"], data["metadatas"])
+    ]
+
+    bm25 = BM25Retriever.from_documents(
+        docs,
+        k=K_RETRIEVE,
+        preprocess_func=lambda t: re.findall(r"\w+", t.lower()),
+    )
+    dense = vector_store.as_retriever(search_kwargs={"k": K_RETRIEVE})
+    hybrid = EnsembleRetriever(retrievers=[bm25, dense], weights=[0.5, 0.5])
+    reranker = CrossEncoder(RERANK_MODEL, max_length=512)
+
+    def retrieve(question, k_retrieve=K_RETRIEVE, top_k=TOP_K):
+        bm25.k = k_retrieve
+        dense.search_kwargs["k"] = k_retrieve
+        candidates = hybrid.invoke(question)
+        if not candidates:
+            return []
+        scores = reranker.predict([(question, d.page_content) for d in candidates])
+        ranked = sorted(zip(candidates, scores), key=lambda x: x[1], reverse=True)
+        return [d for d, _ in ranked[:top_k]]
+
+    return retrieve
+
+
 def format_docs(docs):
     """Format retrieved chunks with source citations, sorted chronologically."""
-
-    docs = sorted(docs, key=lambda d: d.metadata.get("citation", ""))
 
     return "\n\n".join(
         f"Source: [{doc.metadata.get('citation', 'Unknown Source')}]\n"
@@ -126,18 +169,8 @@ def format_docs(docs):
     )
 
 
-def query_documents(vector_store, question):
+def query_documents(retrieve, question, k_retrieve=K_RETRIEVE, top_k=TOP_K):
     """Run a citation-grounded RAG query against BOT Monetary Policy Reports."""
-
-    # Find the 5 most relevant chunks
-    retriever = vector_store.as_retriever(
-        search_type="mmr",
-        search_kwargs={
-            "k": 8,
-            "fetch_k": 30,
-            "lambda_mult": 0.7
-        }
-    )
 
     # Initialize LLM
     llm = ChatOllama(
@@ -152,12 +185,9 @@ def query_documents(vector_store, question):
         """
 You are a financial and research assistant for Thailand's monetary policy and
 macroeconomy. Your ONLY knowledge source is the Bank of Thailand (BOT) quarterly
-monetary policy reports (MPR), 2013 Q1 onward.
+monetary policy reports (MPR) from 2013 Q1 onward to today's date of {today}.
 
 Answer the user's question using ONLY the retrieved context.
-
-Prompts may include questions about the future, which you must answer based
-on the most recent MPR available, closest to today's date of {today}.
 
 RULES
 1. Use ONLY the text under CONTEXT. Never add facts, statistics, assumptions,
@@ -195,7 +225,7 @@ ANSWER
 
     # Build the RAG chain
     chain = (
-        {"context": retriever | format_docs,
+        {"context": RunnableLambda(lambda q: retrieve(q, k_retrieve, top_k)) | format_docs,
          "question": RunnablePassthrough(),
          "today": lambda _: datetime.now().strftime('%Y-%B-%d')
         }
@@ -224,8 +254,10 @@ if __name__ == "__main__":
     else:
         # Load the existing store and start a question loop
         store = load_vector_store()
+        retriever = build_retriever(store)
+
         print(f"\nBOT Monetary Policy RAG system ready.")
-        print(f"Model: {CHAT_MODEL}. Embedding: {EMBED_MODEL}.")
+        print(f"Model: {CHAT_MODEL}.\nEmbedding: {EMBED_MODEL}.\nReranker: {RERANK_MODEL}.")
         print("Type your questions (Ctrl+C to exit):\n")
 
         while True:
@@ -236,7 +268,7 @@ if __name__ == "__main__":
                 print("\nSearching documents and generating answer...\n")
 
                 print("A: ", end="")
-                query_documents(store, question)
+                query_documents(retriever, question)
                 print()
             
             except KeyboardInterrupt:

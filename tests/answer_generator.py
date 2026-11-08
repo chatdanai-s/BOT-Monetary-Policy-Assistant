@@ -8,13 +8,18 @@ Optional environment variables:
     DOCS_DIR       PDF directory (default: ./documents)
     CHUNK_SIZE     Character chunk size (default: 1000)
     CHUNK_OVERLAP  Character overlap (default: 200)
-    SAMPLE_SIZE    Number of chunks to sample (default: 100)
+    SAMPLE_SIZE    Number of chunks to sample (default: 200)
     RANDOM_SEED    Reproducible sampling seed (default: 42)
 
 Output:
     test/answer_sample.txt
 """
 
+import warnings
+warnings.filterwarnings(
+    "ignore",
+    category=DeprecationWarning
+)
 import random
 from pathlib import Path
 
@@ -25,9 +30,9 @@ from langchain_text_splitters import RecursiveCharacterTextSplitter
 DOCS_DIR = Path("./documents")
 OUTPUT_FILE = Path("./tests/answer_sample.txt")
 
-CHUNK_SIZE = 2000
-CHUNK_OVERLAP = 300
-SAMPLE_SIZE = 100
+CHUNK_SIZE = 1000
+CHUNK_OVERLAP = 200
+SAMPLE_SIZE = 200
 RANDOM_SEED = 42
 
 

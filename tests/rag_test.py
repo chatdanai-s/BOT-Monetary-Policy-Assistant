@@ -5,11 +5,14 @@ Run from the project root or from tests/:
     python tests/rag_test.py
     python tests/rag_test.py --qa tests/qa_pairs.json --judge-model qwen3:4b-instruct
     python tests/rag_test.py --limit 5 --no-judge
+    python tests/rag_test.py --k-retrieve 30 --top-k 8
 
-The pipeline is NOT modified. rag_pipeline.query_documents() is called as is:
+The pipeline is NOT modified. The hybrid retriever (BM25 + dense + cross-encoder
+reranker) is built once with rag_pipeline.build_retriever(), then
+rag_pipeline.query_documents() is called as is:
   - the answer is captured from its stdout stream
   - the retrieved chunks are captured by wrapping rag_pipeline.format_docs,
-    which receives the retriever output (in MMR rank order) before sorting
+    which receives the final reranked chunks (best first, top_k of them)
 
 Retrieval metrics (gold = cited_chunk + citation in the QA json):
   Hit@k (= Recall@k, single gold chunk per question), MRR, nDCG@k,
@@ -44,7 +47,7 @@ import rag_pipeline as rp
 
 REFUSAL = "The provided reports do not contain this information."
 CITE_RE = re.compile(r"MPR_\d{4}_Q\d,\s*PDF p\.\s*\d+")
-KS = (1, 3, 5, 8)
+BASE_KS = (1, 3, 5, 8)
 JACCARD_MATCH = 0.90
 
 JUDGE_PROMPT = """You are a strict grader for a question answering system.
@@ -188,12 +191,12 @@ def _recording_format_docs(docs):
 rp.format_docs = _recording_format_docs
 
 
-def run_pipeline(store, question):
+def run_pipeline(retrieve, question, k_retrieve, top_k):
     recorder.docs, recorder.t_retrieved = [], None
     buf = io.StringIO()
     t0 = time.perf_counter()
     with contextlib.redirect_stdout(buf):
-        rp.query_documents(store, question)
+        rp.query_documents(retrieve, question, k_retrieve=k_retrieve, top_k=top_k)
     t1 = time.perf_counter()
     retr_latency = (recorder.t_retrieved - t0) if recorder.t_retrieved else None
     return buf.getvalue().strip(), list(recorder.docs), t1 - t0, retr_latency
@@ -257,6 +260,10 @@ def main():
     ap.add_argument("--judge-model", default=None, help="Ollama judge model (default: CHAT_MODEL)")
     ap.add_argument("--no-judge", action="store_true", help="skip LLM judge")
     ap.add_argument("--limit", type=int, default=None, help="only first N questions")
+    ap.add_argument("--k-retrieve", type=int, default=None,
+                    help="candidates per retriever before reranking (default: rag_pipeline.K_RETRIEVE)")
+    ap.add_argument("--top-k", type=int, default=None,
+                    help="chunks kept after reranking (default: rag_pipeline.TOP_K)")
     args = ap.parse_args()
 
     qa_path = Path(args.qa) if args.qa else TESTS_DIR / "qa_pairs.json"
@@ -270,7 +277,13 @@ def main():
 
     if not Path(rp.CHROMA_DIR).exists():
         sys.exit(f"Vector store not found at {rp.CHROMA_DIR}. Run the build step first.")
+    k_retrieve = args.k_retrieve or rp.K_RETRIEVE
+    top_k = args.top_k or rp.TOP_K
+    KS = tuple(sorted({k for k in BASE_KS if k <= top_k} | {top_k}))
+
+    print("Loading vector store and building hybrid retriever + reranker ...")
     store = rp.load_vector_store()
+    retrieve = rp.build_retriever(store)
 
     judge_model = args.judge_model or rp.CHAT_MODEL
     judge_llm = None
@@ -281,7 +294,7 @@ def main():
     for row in tqdm(qa, desc="Evaluating", unit="q"):
         r = {"idx": row["question_index"], "question": row["question"]}
         try:
-            answer, docs, lat, rlat = run_pipeline(store, row["question"])
+            answer, docs, lat, rlat = run_pipeline(retrieve, row["question"], k_retrieve, top_k)
         except Exception as e:  # noqa
             r.update(error=str(e), answer="", docs=[], latency=None, retr_latency=None)
             results.append(r)
@@ -339,7 +352,9 @@ def main():
     L.append(f"Embedding model     : {rp.EMBED_MODEL}")
     L.append(f"Judge model         : {'none' if judge_llm is None else judge_model}")
     L.append(f"Chunk size/overlap  : {rp.CHUNK_SIZE}/{rp.CHUNK_OVERLAP}")
-    L.append("Retriever           : MMR k=8 fetch_k=30 lambda_mult=0.7")
+    L.append("Retriever           : hybrid BM25 + dense (Ensemble, weights 0.5/0.5) + cross-encoder rerank")
+    L.append(f"Reranker model      : {rp.RERANK_MODEL}")
+    L.append(f"k_retrieve / top_k  : {k_retrieve} per retriever / {top_k} after rerank")
     L.append(f"QA file             : {qa_path.name}")
     L.append(f"Questions           : {len(results)} (completed {n}, errors {n_err})")
     L.append(f"Chunk match rule    : same citation and (normalized text equal or word Jaccard >= {JACCARD_MATCH})")

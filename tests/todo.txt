@@ -1,7 +1,5 @@
 Improve RAG system capabilities
-- Remove chronological ordering in format_docs()
-- Implement BM25+dense hybrid retrieval
-- Implement reranker
+- Optimize LLM response time
 - Improve prompt engineering
 
 - Introduce test for hallucinations
