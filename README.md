@@ -1,20 +1,34 @@
 # BOT Monetary Policy Report RAG Assistant
 
-A local retrieval-augmented generation (RAG) assistant for answering questions about the Bank of Thailand (BOT) quarterly Monetary Policy Reports (MPR), from 2013 Q1 onward
-(https://www.bot.or.th/en/our-roles/monetary-policy/mpc-publication/Monetary-Policy-Report/mpr-previous-reports.html).
+A locally hosted retrieval-augmented generation (RAG) assistant for answering questions about the Bank of Thailand (BOT) quarterly Monetary Policy Reports (MPR), from 2013 Q1 onward.
 Answers are generated only from retrieved report text and include citations to the source report and PDF page.
 
-The system runs entirely locally through Ollama, with zero API costs.
+The system runs entirely locally through Ollama and HuggingFace, with zero API costs.
+
+## Key Results
+
+<sub>Evaluation run: 9 November 2026 (61 questions, 0 evaluation errors)</sub>
+
+| Category | Metric | Result |
+|---|---|---:|
+| Retrieval | Recall@1/Recall@5 | **65.6%**/**80.3%** |
+| Retrieval | MRR@5 | **0.7164** |
+| Retrieval | nDCG@5 | **0.7384** |
+| Answer quality | Answer correctness (LLM judge) | **68.9%** |
+| Answer quality | End-to-end success (gold chunk retrieved & answer judged correct) | **62.3%** |
+| Citations | Citation precision | **100.0%** |
+| Citations | Gold citation coverage | **72.1%** |
+| Performance | End-to-end latency, Mean/P95 | **15.04 s**/**22.96 s** |
 
 ## Overview
 
-1. **Download:** `scrape_BOT_MPR.py` downloads the MPR PDFs from the BOT website into `documents/`
-2. **PDF Loading:** Loads every PDF page in `documents/` with PyPDFLoader
-3. **Chunking:** Splits pages into overlapping chunks with RecursiveCharacterTextSplitter
-4. **Citation Metadata:** Attaches a citation (`<filename>, PDF p. <page>`) to every chunk
-5. **Embedding:** Embeds chunks with `nomic-embed-text` through Ollama and stores them in ChromaDB
-6. **Retrieval:** Finds relevant chunks via Maximum Marginal Relevance (MMR) search
-7. **Generation:** Generates a citation-grounded answer with `qwen3:4b-instruct` through Ollama
+1. **Download reports:** `scrape_BOT_MPR.py` downloads the MPR PDFs from the BOT website into `documents/`.
+2. **PDF Loading and Chunking:** `PyPDFLoader` loads every PDF page in `documents/`and splits content into overlapping chunks with with PyMuPDF and RecursiveCharacterTextSplitter.
+3. **Citation Metadata:** Each chunk retains its source filename and PDF page for citation (`<filename>, PDF p. <page>`).
+5. **Embedding:** `qwen3-embedding:0.6b` embeds each chunks and stores them in ChromaDB.
+6. **Retrieval:** Finds relevant chunks via hybrid retrival (BM25 and dense vector).
+7. **Rerank candidates:** `BAAI/bge-reranker-v2-m3` scores the candidate passages against the question; the highest-ranked passages are passed to the generator.
+8. **Generation:** `qwen3:4b-instruct` generates an answer using the retrieved context and citation instructions.
 
 ## Tech Stack
 
@@ -169,7 +183,7 @@ This project is run on:
 - **Memory:** 16 GB RAM
 - **GPU:** NVIDIA GeForce RTX 3050 (6 GB VRAM)
 
-The available VRAM constrains the selection of local models.
+The available RAM and VRAM constrains the selection of local models.
 
 ### Current Limitations
 
@@ -181,3 +195,9 @@ The available VRAM constrains the selection of local models.
 - Each question is answered independently; there is no conversation memory.
 - Local inference on a small model is slower and less accurate than cloud-hosted LLMs.
 - Like all RAG systems, incorrect or unsupported answers remain possible if relevant context is not retrieved.
+
+## Data Source
+
+[Bank of Thailand — Monetary Policy Report: Previous Reports](https://www.bot.or.th/en/our-roles/monetary-policy/mpc-publication/Monetary-Policy-Report/mpr-previous-reports.html)
+
+The reports are published by the Bank of Thailand. This project is an independent tool for searching and querying those public documents.

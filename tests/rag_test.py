@@ -11,12 +11,16 @@ The pipeline is NOT modified. The hybrid retriever (BM25 + dense + cross-encoder
 reranker) is built once with rag_pipeline.build_retriever(), then
 rag_pipeline.query_documents() is called as is:
   - the answer is captured from its stdout stream
-  - the retrieved chunks are captured by wrapping rag_pipeline.format_docs,
-    which receives the final reranked chunks (best first, top_k of them)
+  - the retriever is wrapped so the FULL reranked candidate list is recorded
+    (best first); only the first top_k chunks are passed on to the LLM, exactly
+    as the pipeline would. This also gives candidate-pool recall, which shows
+    whether a miss comes from retrieval (pool) or from the reranker cut (top_k)
+  - rag_pipeline.format_docs is wrapped to record the chunks the LLM saw
 
 Retrieval metrics (gold = cited_chunk + citation in the QA json):
-  Hit@k (= Recall@k, single gold chunk per question), MRR, nDCG@k,
-  each at exact-chunk level and at page level (citation only).
+  Hit@k (= Recall@k, single gold chunk per question), MRR@top_k, nDCG@k,
+  each at exact-chunk level and at page level (citation only), plus
+  candidate-pool recall before the top_k cut.
 Answer metrics:
   LLM-judge correctness vs the reference answer, token F1, ROUGE-L F1,
   numeric recall, citation recall, citation precision / hallucination rate,
@@ -36,18 +40,18 @@ import time
 from datetime import datetime
 from pathlib import Path
 
-TESTS_DIR = Path(__file__).resolve().parent
-ROOT_DIR = TESTS_DIR.parent
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR if (SCRIPT_DIR / "rag_pipeline.py").exists() else SCRIPT_DIR.parent
+TESTS_DIR = ROOT_DIR / "tests"
 sys.path.insert(0, str(ROOT_DIR))
 
 from tqdm import tqdm
-from langchain_ollama import ChatOllama
 
 import rag_pipeline as rp
 
 REFUSAL = "The provided reports do not contain this information."
 CITE_RE = re.compile(r"MPR_\d{4}_Q\d,\s*PDF p\.\s*\d+")
-BASE_KS = (1, 3, 5, 8)
+BASE_KS = (1, 3, 5)
 JACCARD_MATCH = 0.90
 
 JUDGE_PROMPT = """You are a strict grader for a question answering system.
@@ -171,10 +175,17 @@ def safe_name(name):
     return re.sub(r"[^A-Za-z0-9._-]", "_", name)
 
 
+def is_refusal(answer):
+    """Refusal sentence at the start, tolerating quotes the model may wrap around it."""
+    head = norm_ws(answer.strip().strip("\"'\u201c\u201d"))
+    return head.startswith(norm_ws(REFUSAL))
+
+
 # ------------------------------------------------------- pipeline capture
 class Recorder:
     def __init__(self):
-        self.docs = []
+        self.docs = []      # chunks the LLM actually saw (top_k)
+        self.pool = []      # full reranked candidate list (best first)
         self.t_retrieved = None
 
 
@@ -191,15 +202,25 @@ def _recording_format_docs(docs):
 rp.format_docs = _recording_format_docs
 
 
+def make_pool_retriever(retrieve):
+    """Wrap retrieve() so the whole reranked list is recorded, but only top_k is returned."""
+    def wrapped(question, k_retrieve, top_k):
+        pool = retrieve(question, k_retrieve, 10 ** 6)  # rerank order is identical for any top_k
+        recorder.pool = list(pool)
+        return pool[:top_k]
+    return wrapped
+
+
 def run_pipeline(retrieve, question, k_retrieve, top_k):
-    recorder.docs, recorder.t_retrieved = [], None
+    recorder.docs, recorder.pool, recorder.t_retrieved = [], [], None
     buf = io.StringIO()
     t0 = time.perf_counter()
     with contextlib.redirect_stdout(buf):
         rp.query_documents(retrieve, question, k_retrieve=k_retrieve, top_k=top_k)
     t1 = time.perf_counter()
     retr_latency = (recorder.t_retrieved - t0) if recorder.t_retrieved else None
-    return buf.getvalue().strip(), list(recorder.docs), t1 - t0, retr_latency
+    return (buf.getvalue().strip(), list(recorder.docs), list(recorder.pool),
+            t1 - t0, retr_latency)
 
 
 # ------------------------------------------------------------- retrieval
@@ -248,7 +269,8 @@ def format_ok(answer):
     if answer.lstrip().startswith(("-", "*", "\u2022")):
         return False
     lines = [l for l in answer.strip().splitlines() if l.strip()]
-    if not lines or not lines[-1].strip().lower().startswith("summary:"):
+    # tolerate markdown emphasis such as **Summary:**
+    if not lines or not lines[-1].strip().lstrip("*_#> ").lower().startswith("summary"):
         return False
     return len(answer.split()) <= 500
 
@@ -283,39 +305,48 @@ def main():
 
     print("Loading vector store and building hybrid retriever + reranker ...")
     store = rp.load_vector_store()
-    retrieve = rp.build_retriever(store)
+    retrieve = make_pool_retriever(rp.build_retriever(store))
 
     judge_model = args.judge_model or rp.CHAT_MODEL
     judge_llm = None
     if not args.no_judge:
-        judge_llm = ChatOllama(model=judge_model, temperature=0, format="json")
+        from langchain_ollama import ChatOllama  # imported lazily so --no-judge needs no Ollama client
+        # num_ctx and keep_alive match the pipeline's ChatOllama so Ollama does not
+        # unload and reload the model between the answer call and the judge call.
+        judge_llm = ChatOllama(model=judge_model, temperature=0, format="json",
+                               keep_alive="30m", num_ctx=8192)
 
     results = []
     for row in tqdm(qa, desc="Evaluating", unit="q"):
         r = {"idx": row["question_index"], "question": row["question"]}
         try:
-            answer, docs, lat, rlat = run_pipeline(retrieve, row["question"], k_retrieve, top_k)
+            answer, docs, pool, lat, rlat = run_pipeline(retrieve, row["question"], k_retrieve, top_k)
         except Exception as e:  # noqa
             r.update(error=str(e), answer="", docs=[], latency=None, retr_latency=None)
             results.append(r)
             continue
 
-        chunk_rank, page_rank = find_ranks(docs, row["cited_chunk"], row["citation"])
+        # ranks are over the full reranked pool; values above top_k mean "retrieved but cut"
+        chunk_rank, page_rank = find_ranks(pool, row["cited_chunk"], row["citation"])
         gold_cite = norm_cite(row["citation"])
         cited = {norm_cite(c) for c in CITE_RE.findall(answer)}
         retrieved_cites = {norm_cite(d.metadata.get("citation", "")) for d in docs}
-        refused = answer.startswith(REFUSAL)
+        refused = is_refusal(answer)
 
-        if refused:
-            correct, reason = 0, "refusal"
-        elif judge_llm is not None:
-            correct, reason = judge_answer(judge_llm, row["question"], row["answer"], answer)
-        else:
+        if judge_llm is None:
             correct, reason = None, "judge skipped"
+        elif refused:
+            correct, reason = 0, "refusal"
+        else:
+            correct, reason = judge_answer(judge_llm, row["question"], row["answer"], answer)
 
         r.update(
             answer=answer,
             n_retrieved=len(docs),
+            pool_size=len(pool),
+            retrieved=[d.metadata.get("citation", "") for d in docs],
+            reference=row["answer"],
+            gold_citation=row["citation"],
             chunk_rank=chunk_rank,
             page_rank=page_rank,
             refused=refused,
@@ -350,7 +381,8 @@ def main():
     L.append(f"Date                : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
     L.append(f"Chat model          : {rp.CHAT_MODEL}")
     L.append(f"Embedding model     : {rp.EMBED_MODEL}")
-    L.append(f"Judge model         : {'none' if judge_llm is None else judge_model}")
+    judge_note = " (same as chat model, self-grading bias)" if judge_llm is not None and judge_model == rp.CHAT_MODEL else ""
+    L.append(f"Judge model         : {'none' if judge_llm is None else judge_model}{judge_note}")
     L.append(f"Chunk size/overlap  : {rp.CHUNK_SIZE}/{rp.CHUNK_OVERLAP}")
     L.append("Retriever           : hybrid BM25 + dense (Ensemble, weights 0.5/0.5) + cross-encoder rerank")
     L.append(f"Reranker model      : {rp.RERANK_MODEL}")
@@ -363,18 +395,21 @@ def main():
     L.append("RETRIEVAL (exact gold chunk)")
     for k in KS:
         prop(f"Hit@{k} (= Recall@{k})", sum(1 for r in ok if r["chunk_rank"] and r["chunk_rank"] <= k), n)
-    mrr = sum(1.0 / r["chunk_rank"] for r in ok if r["chunk_rank"]) / n
-    L.append(f"{'MRR':<38}{mrr:8.4f}")
+    mrr = sum(1.0 / r["chunk_rank"] for r in ok if r["chunk_rank"] and r["chunk_rank"] <= top_k) / n
+    L.append(f"{'MRR@' + str(top_k):<38}{mrr:8.4f}")
     for k in KS:
         nd = sum(1.0 / math.log2(r["chunk_rank"] + 1) for r in ok if r["chunk_rank"] and r["chunk_rank"] <= k) / n
         L.append(f"{'nDCG@' + str(k):<38}{nd:8.4f}")
+    avg_pool = statistics.mean(r["pool_size"] for r in ok)
+    prop(f"Candidate pool recall (avg {avg_pool:.0f} cands)", sum(1 for r in ok if r["chunk_rank"]), n)
     L.append("")
 
     L.append("RETRIEVAL (gold page, citation only)")
     for k in KS:
         prop(f"Page Hit@{k}", sum(1 for r in ok if r["page_rank"] and r["page_rank"] <= k), n)
-    pmrr = sum(1.0 / r["page_rank"] for r in ok if r["page_rank"]) / n
-    L.append(f"{'Page MRR':<38}{pmrr:8.4f}")
+    pmrr = sum(1.0 / r["page_rank"] for r in ok if r["page_rank"] and r["page_rank"] <= top_k) / n
+    L.append(f"{'Page MRR@' + str(top_k):<38}{pmrr:8.4f}")
+    prop("Candidate pool page recall", sum(1 for r in ok if r["page_rank"]), n)
     L.append("")
 
     judged = [r for r in ok if r["correct"] is not None]
@@ -382,13 +417,13 @@ def main():
     if judged:
         prop("Answer correctness (LLM judge)", sum(r["correct"] for r in judged), len(judged))
         L.append(f"{'Judge failures (excluded)':<38}{len(ok) - len(judged):8d}")
-        hit = [r for r in judged if r["chunk_rank"]]
-        miss = [r for r in judged if not r["chunk_rank"]]
+        hit = [r for r in judged if r["chunk_rank"] and r["chunk_rank"] <= top_k]
+        miss = [r for r in judged if not (r["chunk_rank"] and r["chunk_rank"] <= top_k)]
         if hit:
             prop("Correctness | gold chunk retrieved", sum(r["correct"] for r in hit), len(hit))
         if miss:
             prop("Correctness | gold chunk missed", sum(r["correct"] for r in miss), len(miss))
-        e2e = sum(1 for r in judged if r["chunk_rank"] and r["correct"])
+        e2e = sum(1 for r in judged if r["chunk_rank"] and r["chunk_rank"] <= top_k and r["correct"])
         prop("End-to-end success (hit and correct)", e2e, len(judged))
     else:
         L.append("Answer correctness (LLM judge)    skipped")
@@ -406,7 +441,9 @@ def main():
     valid = sum(r["cite_valid"] for r in ok)
     prop("Citation precision (in retrieved set)", valid, total_cited)
     prop("Hallucinated citation rate", total_cited - valid, total_cited)
-    prop("Format compliance", sum(1 for r in ok if r["fmt_ok"]), n)
+    answered = [r for r in ok if not r["refused"]]  # refusals have no Summary line by design
+    if answered:
+        prop("Format compliance (non-refusals)", sum(1 for r in answered if r["fmt_ok"]), len(answered))
     L.append("")
 
     lat = [r["latency"] for r in ok]
@@ -429,10 +466,16 @@ def main():
         L.append(f"{r['idx']:<5}{str(cr):<12}{str(pr):<11}{str(jd):<7}{r['token_f1']:<7.3f}{r['cite_recall']:<11}{int(r['refused'])}")
 
     text = "\n".join(L) + "\n"
-    out_path = TESTS_DIR / f"rag_test_{safe_name(rp.CHAT_MODEL)}_results.txt"
+    TESTS_DIR.mkdir(parents=True, exist_ok=True)
+    suffix = f"_limit{args.limit}" if args.limit else ""  # a partial run must not overwrite a full run
+    base = f"rag_test_{safe_name(rp.CHAT_MODEL)}{suffix}"
+    out_path = TESTS_DIR / f"{base}_results.txt"
     out_path.write_text(text, encoding="utf-8")
+    details_path = TESTS_DIR / f"{base}_details.json"
+    details_path.write_text(json.dumps(results, indent=2, ensure_ascii=False, default=str), encoding="utf-8")
     print(text)
     print(f"Saved to {out_path}")
+    print(f"Per-question details (answers, judge reasons, retrieved citations): {details_path}")
 
 
 if __name__ == "__main__":

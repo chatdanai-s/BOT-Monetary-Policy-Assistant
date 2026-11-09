@@ -1,74 +1,59 @@
 """
 Sample PDF chunks for RAG evaluation.
 
-Usage:
-    python test/answer_generator.py
+Uses the same chunker, chunk settings and citation format as rag_pipeline.py,
+so sampled chunks and citations match what the vector store contains.
+
+Usage (from the project root or from the tests/ folder):
+    python tests/answer_generator.py
 
 Optional environment variables:
-    DOCS_DIR       PDF directory (default: ./documents)
-    CHUNK_SIZE     Character chunk size (default: 1000)
-    CHUNK_OVERLAP  Character overlap (default: 200)
-    SAMPLE_SIZE    Number of chunks to sample (default: 200)
+    SAMPLE_SIZE    Number of chunks to sample (default: 250)
     RANDOM_SEED    Reproducible sampling seed (default: 42)
 
 Output:
-    test/answer_sample.txt
+    tests/answer_sample.txt
 """
 
-import warnings
-warnings.filterwarnings(
-    "ignore",
-    category=DeprecationWarning
-)
+import os
 import random
+import sys
+import warnings
 from pathlib import Path
 
-from langchain_community.document_loaders import DirectoryLoader, PyPDFLoader
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-# Initialize
-DOCS_DIR = Path("./documents")
-OUTPUT_FILE = Path("./tests/answer_sample.txt")
+# Locate the project root (the folder that contains pdf_chunking.py).
+SCRIPT_DIR = Path(__file__).resolve().parent
+ROOT_DIR = SCRIPT_DIR if (SCRIPT_DIR / "pdf_chunking.py").exists() else SCRIPT_DIR.parent
+sys.path.insert(0, str(ROOT_DIR))
 
-CHUNK_SIZE = 1000
-CHUNK_OVERLAP = 200
-SAMPLE_SIZE = 200
-RANDOM_SEED = 42
+from pdf_chunking import load_and_chunk_pdfs  # noqa: E402
+
+# Keep these identical to rag_pipeline.py
+DOCS_DIR = ROOT_DIR / "documents"
+CHUNK_SIZE = 1500
+CHUNK_OVERLAP = 250
+
+OUTPUT_FILE = ROOT_DIR / "tests" / "answer_sample.txt"
+SAMPLE_SIZE = int(os.environ.get("SAMPLE_SIZE", 250))
+RANDOM_SEED = int(os.environ.get("RANDOM_SEED", 42))
 
 
 def load_chunks():
-    """Load PDF pages and split them using the configured chunk settings."""
+    """Load and chunk PDFs with the pipeline's chunker, then add citations."""
     print(f"Loading PDF pages from {DOCS_DIR}/ ...")
 
-    pdf_loader = DirectoryLoader(
-        str(DOCS_DIR),
-        glob="**/*.pdf",
-        loader_cls=PyPDFLoader,
-        show_progress=True,
+    chunks, n_pages = load_and_chunk_pdfs(
+        DOCS_DIR, chunk_size=CHUNK_SIZE, chunk_overlap=CHUNK_OVERLAP
     )
-    documents = pdf_loader.load()
+    print(f"Loaded {n_pages} PDF page(s), created {len(chunks)} chunk(s).")
 
-    print(f"Loaded {len(documents)} PDF page(s).")
-
-    if not documents:
-        return []
-
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=CHUNK_SIZE,
-        chunk_overlap=CHUNK_OVERLAP,
-        separators=["\n\n", "\n", ". ", " ", ""],
-    )
-    chunks = splitter.split_documents(documents)
-
-    print(f"Split {len(documents)} PDF page(s) into {len(chunks)} chunk(s).")
-
-    # Add citation metadata, matching the vector-store construction script.
+    # Same citation format as build_vector_store(): page is already 1-based.
     for chunk in chunks:
         source = chunk.metadata.get("source", "Unknown Source")
         page = chunk.metadata.get("page", 0)
-        filename = Path(source).stem
-
-        chunk.metadata["citation"] = f"{filename}, PDF p. {page + 1}"
+        chunk.metadata["citation"] = f"{Path(source).stem}, PDF p. {page}"
 
     return chunks
 
@@ -83,10 +68,10 @@ def write_sample(chunks):
     rng = random.Random(RANDOM_SEED)
     sampled_chunks = rng.sample(chunks, sample_count)
 
+    OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
     with OUTPUT_FILE.open("w", encoding="utf-8") as file:
         for chunk in sampled_chunks:
             citation = chunk.metadata.get("citation", "Unknown citation")
-            
             file.write(f"CITATION: {citation}\n")
             file.write("CONTENT:\n")
             file.write(chunk.page_content.strip())
@@ -95,11 +80,10 @@ def write_sample(chunks):
 
     print(f"Saved {sample_count} sampled chunks to {OUTPUT_FILE}")
 
+
 def main():
-    chunks = load_chunks()
-    write_sample(chunks)
+    write_sample(load_chunks())
 
 
 if __name__ == "__main__":
     main()
-

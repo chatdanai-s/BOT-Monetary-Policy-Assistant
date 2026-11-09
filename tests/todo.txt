@@ -1,6 +1,5 @@
 Improve RAG system capabilities
-- Optimize LLM response time
-- Improve prompt engineering
+- Optimize LLM response time (API?)
 
 - Introduce test for hallucinations
 - Introduce test for multi-document synthesis
