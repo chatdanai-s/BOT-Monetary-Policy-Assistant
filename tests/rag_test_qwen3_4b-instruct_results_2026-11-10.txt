@@ -1,0 +1,148 @@
+RAG TEST RESULTS
+Date                : 2026-11-10 18:00:30
+Chat model          : qwen3:4b-instruct
+Embedding model     : qwen3-embedding:0.6b
+Judge model         : gemini-3.5-flash-lite
+Chunk size/overlap  : 1500/250
+Retriever           : hybrid BM25 + dense (Ensemble, weights 0.5/0.5) + cross-encoder rerank
+Reranker model      : BAAI/bge-reranker-v2-m3
+k_retrieve / top_k  : 30 per retriever / 5 after rerank
+QA file             : qa_pairs.json
+Questions           : 95 (completed 95, errors 0)
+Chunk match rule    : same citation and (normalized text equal or word Jaccard >= 0.9)
+
+RETRIEVAL (exact gold chunk)
+Hit@1 (= Recall@1)                      61.1%  (58/95)  95% CI [51.0, 70.2]
+Hit@3 (= Recall@3)                      78.9%  (75/95)  95% CI [69.7, 85.9]
+Hit@5 (= Recall@5)                      83.2%  (79/95)  95% CI [74.4, 89.4]
+MRR@5                                   0.7025
+nDCG@1                                  0.6105
+nDCG@3                                  0.7179
+nDCG@5                                  0.7351
+Candidate pool recall (avg 52 cands)    88.4%  (84/95)  95% CI [80.4, 93.4]
+
+RETRIEVAL (gold page, citation only)
+Page Hit@1                              64.2%  (61/95)  95% CI [54.2, 73.1]
+Page Hit@3                              81.1%  (77/95)  95% CI [72.0, 87.7]
+Page Hit@5                              86.3%  (82/95)  95% CI [78.0, 91.8]
+Page MRR@5                              0.7332
+Candidate pool page recall              92.6%  (88/95)  95% CI [85.6, 96.4]
+
+ANSWER QUALITY
+Answer correctness (LLM judge)          82.1%  (78/95)  95% CI [73.2, 88.5]
+Judge failures (excluded)                    0
+Correctness | gold chunk retrieved      87.3%  (69/79)  95% CI [78.2, 93.0]
+Correctness | gold chunk missed         56.2%  (9/16)  95% CI [33.2, 76.9]
+End-to-end success (hit and correct)    72.6%  (69/95)  95% CI [62.9, 80.6]
+Token F1 vs reference (mean)            0.4582
+ROUGE-L F1 vs reference (mean)          0.3621
+Numeric recall vs reference (mean)      0.7249
+Refusal rate                             1.1%  (1/95)  95% CI [0.2, 5.7]
+
+CITATIONS AND FORMAT
+Gold citation present in answer         68.4%  (65/95)  95% CI [58.5, 76.9]
+Citation precision (in retrieved set)  100.0%  (124/124)  95% CI [97.0, 100.0]
+Hallucinated citation rate               0.0%  (0/124)  95% CI [-0.0, 3.0]
+Format compliance (non-refusals)        41.5%  (39/94)  95% CI [32.1, 51.6]
+
+LATENCY (seconds)
+End-to-end mean / p50 / p95           14.63 / 13.01 / 25.64
+Retrieval mean / p50 / p95            1.84 / 1.78 / 2.30
+
+PER QUESTION
+idx  chunk_rank  page_rank  judge  tokF1  gold_cite  refused
+1    2           2          1      0.400  1          0
+2    2           2          1      0.508  1          0
+3    1           1          0      0.396  0          0
+4    1           1          0      0.259  1          0
+5    1           1          1      0.543  1          0
+6    1           1          1      0.243  1          0
+7    9           9          0      0.215  0          0
+8    -           -          0      0.398  0          0
+9    -           -          1      0.779  0          0
+10   1           1          1      0.412  1          0
+11   1           1          1      0.360  0          0
+12   -           -          0      0.168  0          0
+13   1           1          1      0.587  1          0
+14   1           1          1      0.367  1          0
+15   -           -          0      0.295  0          0
+16   1           1          1      0.358  1          0
+17   1           1          1      0.194  1          0
+18   1           1          1      0.537  1          0
+19   -           1          1      0.390  0          0
+20   1           1          1      0.456  1          0
+21   1           1          1      0.644  1          0
+22   2           2          1      0.566  1          0
+23   2           2          1      0.511  1          0
+24   1           1          1      0.647  1          0
+25   5           5          1      0.396  0          0
+26   -           -          1      0.463  0          0
+27   3           3          1      0.260  0          0
+28   1           1          1      0.566  1          0
+29   -           2          1      0.290  1          0
+30   1           1          1      0.539  1          0
+31   14          14         1      0.701  0          0
+32   1           1          1      0.327  1          0
+33   7           7          1      0.171  0          0
+34   1           1          0      0.255  0          1
+35   1           1          1      0.660  1          0
+36   1           1          1      0.758  1          0
+37   1           1          1      0.317  1          0
+38   1           1          1      0.162  1          0
+39   1           1          0      0.267  1          0
+40   2           2          1      0.369  0          0
+41   1           1          1      0.461  1          0
+42   1           1          1      0.427  1          0
+43   1           1          1      0.353  1          0
+44   1           1          1      0.726  1          0
+45   1           1          1      0.613  1          0
+46   -           4          0      0.275  0          0
+47   1           1          1      0.643  1          0
+48   1           1          1      0.413  0          0
+49   1           1          1      0.553  1          0
+50   2           1          1      0.264  1          0
+51   1           1          1      0.289  1          0
+52   1           1          1      0.496  1          0
+53   1           1          1      0.275  1          0
+54   1           1          1      0.694  1          0
+55   1           1          1      0.594  1          0
+56   1           1          1      0.621  1          0
+57   1           1          1      0.292  1          0
+58   3           3          1      0.290  0          0
+59   2           2          1      0.294  0          0
+60   1           1          1      0.552  1          0
+61   -           38         1      0.244  0          0
+62   1           1          1      0.446  1          0
+63   1           1          1      0.643  1          0
+64   1           1          1      0.417  1          0
+65   1           1          1      0.503  1          0
+66   1           1          1      0.441  1          0
+67   1           1          1      0.553  1          0
+68   1           1          1      0.434  1          0
+69   2           2          1      0.811  1          0
+70   5           5          1      0.647  1          0
+71   1           1          0      0.508  0          0
+72   2           2          1      0.386  1          0
+73   3           3          1      0.709  0          0
+74   1           1          1      0.381  1          0
+75   2           2          0      0.413  1          0
+76   2           2          1      0.451  1          0
+77   1           1          1      0.496  1          0
+78   10          10         1      0.521  0          0
+79   2           2          1      0.581  1          0
+80   3           1          1      0.617  1          0
+81   1           1          0      0.441  1          0
+82   -           -          1      0.494  0          0
+83   7           7          0      0.385  0          0
+84   4           4          1      0.599  0          0
+85   1           1          1      0.614  1          0
+86   4           4          1      0.663  0          0
+87   1           1          0      0.467  1          0
+88   1           1          1      0.443  1          0
+89   1           1          1      0.224  0          0
+90   1           1          1      0.790  1          0
+91   -           -          0      0.289  0          0
+92   1           1          0      0.364  0          0
+93   1           1          0      0.607  1          0
+94   1           1          1      0.331  1          0
+95   2           2          1      0.756  1          0

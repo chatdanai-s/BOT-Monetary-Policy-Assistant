@@ -3,10 +3,11 @@ RAG evaluation for rag_pipeline.py (BOT MPR assistant).
 
 Run from the project root or from tests/:
     python tests/rag_test.py
-    python tests/rag_test.py --qa tests/qa_pairs.json --judge-model qwen3:4b-instruct
+    python tests/rag_test.py --qa tests/qa_pairs.json --judge-model gemini-3.5-flash-lite
     python tests/rag_test.py --limit 5 --no-judge
     python tests/rag_test.py --k-retrieve 30 --top-k 8
 
+The judge is a Gemini model; put GEMINI_API_KEY in .env next to rag_pipeline.py.
 The pipeline is NOT modified. The hybrid retriever (BM25 + dense + cross-encoder
 reranker) is built once with rag_pipeline.build_retriever(), then
 rag_pipeline.query_documents() is called as is:
@@ -37,6 +38,7 @@ import re
 import statistics
 import sys
 import time
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -45,8 +47,9 @@ ROOT_DIR = SCRIPT_DIR if (SCRIPT_DIR / "rag_pipeline.py").exists() else SCRIPT_D
 TESTS_DIR = ROOT_DIR / "tests"
 sys.path.insert(0, str(ROOT_DIR))
 
+from dotenv import load_dotenv
+load_dotenv(ROOT_DIR / ".env")
 from tqdm import tqdm
-
 import rag_pipeline as rp
 
 REFUSAL = "The provided reports do not contain this information."
@@ -54,26 +57,22 @@ CITE_RE = re.compile(r"MPR_\d{4}_Q\d,\s*PDF p\.\s*\d+")
 BASE_KS = (1, 3, 5)
 JACCARD_MATCH = 0.90
 
-JUDGE_PROMPT = """You are a strict grader for a question answering system.
-Compare the CANDIDATE answer with the REFERENCE answer for the QUESTION.
+GEMINI_MODEL = "gemini-3.5-flash-lite"
+JUDGE_MIN_INTERVAL = 6              # min seconds between judge calls (free-tier rate limit)
+JUDGE_RETRIES = 4                   # attempts per question
+MAX_JUDGE_FAIL_STREAK = 3           # stop judging after this many consecutive failures (e.g. daily quota hit)
 
-Mark "correct" only if ALL are true:
-1. The candidate gives the same direct answer as the reference.
-2. Every key number, date, period and direction of change in the reference
-   that is needed to answer the question appears in the candidate with the same value.
-3. The candidate does not contradict the reference.
-Extra detail that does not contradict the reference is allowed.
-Ignore citation tags and formatting.
-If the candidate says the information is not available, it is "incorrect".
+JUDGE_PROMPT = """Grade a CANDIDATE answer against a REFERENCE answer.
 
-QUESTION:
-{question}
+QUESTION: {question}
 
-REFERENCE:
-{reference}
+REFERENCE: {reference}
 
-CANDIDATE:
-{candidate}
+CANDIDATE: {candidate}
+
+Verdict "correct" only if the candidate gives the same main answer as the reference, with the same key numbers,
+periods and direction of change, and does not contradict it. Extra non-conflicting detail is fine.
+Ignore citations and formatting. A candidate saying the information is unavailable is "incorrect".
 
 Reply with JSON only: {{"verdict": "correct" or "incorrect", "reason": "<one short sentence>"}}"""
 
@@ -244,22 +243,70 @@ def find_ranks(docs, gold_chunk, gold_cite):
 
 
 # ----------------------------------------------------------------- judge
-def judge_answer(judge_llm, question, reference, candidate):
+_last_judge_call = 0.0
+
+
+def check_judge(client, model):
+    """Tiny call before the slow setup. Retries transient errors, exits on config errors."""
+    err = None
+    for attempt in range(3):
+        try:
+            client.models.generate_content(model=model, contents="Reply with OK.")
+            return
+        except Exception as e:  # noqa
+            err = e
+            code = getattr(e, "code", None)
+            if code is not None and code not in (429, 500, 503, 504):
+                break  # bad key or model ID, retrying cannot help
+            time.sleep(10 * (attempt + 1))
+    sys.exit(f"Judge preflight failed for model '{model}': {err}\n"
+             f"If this is a 404/400/403, check GEMINI_API_KEY and the model ID. "
+             f"If it is 429/503/504, the model is busy or slow: retry later or try --judge-model gemini-2.5-flash.")
+
+
+def _throttle():
+    """Keep at least JUDGE_MIN_INTERVAL seconds between judge calls."""
+    global _last_judge_call
+    wait = JUDGE_MIN_INTERVAL - (time.monotonic() - _last_judge_call)
+    if wait > 0:
+        time.sleep(wait)
+    _last_judge_call = time.monotonic()
+
+
+def judge_answer(client, model, question, reference, candidate):
     prompt = JUDGE_PROMPT.format(
         question=question,
         reference=strip_citations(reference).strip(),
         candidate=strip_citations(candidate).strip(),
     )
-    try:
-        out = judge_llm.invoke(prompt).content
-        m = re.search(r"\{.*\}", out, re.S)
-        data = json.loads(m.group(0))
-        verdict = str(data.get("verdict", "")).strip().lower()
+    err = "judge error"
+    for attempt in range(JUDGE_RETRIES):
+        _throttle()
+        try:
+            resp = client.models.generate_content(
+                model=model,
+                contents=prompt,
+                config={"temperature": 0, "response_mime_type": "application/json"},
+            )
+        except Exception as e:  # noqa  rate limit / transient API error
+            err = f"judge API error: {e}"
+            code = getattr(e, "code", None)
+            if code is not None and code not in (429, 500, 503, 504):
+                break  # bad model ID, bad key, bad request: retrying cannot help
+            if attempt < JUDGE_RETRIES - 1:
+                time.sleep(15 * (attempt + 1))
+            continue
+        try:
+            m = re.search(r"\{.*\}", resp.text or "", re.S)
+            data = json.loads(m.group(0))
+            verdict = str(data.get("verdict", "")).strip().lower()
+        except Exception as e:  # noqa
+            err = f"unparseable verdict: {e}"
+            continue
         if verdict in ("correct", "incorrect"):
             return (1 if verdict == "correct" else 0), str(data.get("reason", ""))
-    except Exception as e:  # noqa
-        return None, f"judge error: {e}"
-    return None, "unparseable verdict"
+        err = f"unparseable verdict: {verdict!r}"
+    return None, err
 
 
 # --------------------------------------------------------------- format
@@ -279,7 +326,7 @@ def format_ok(answer):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--qa", default=None, help="QA json file (default tests/qa_pairs.json)")
-    ap.add_argument("--judge-model", default=None, help="Ollama judge model (default: CHAT_MODEL)")
+    ap.add_argument("--judge-model", default=None, help=f"Gemini judge model (default: {GEMINI_MODEL})")
     ap.add_argument("--no-judge", action="store_true", help="skip LLM judge")
     ap.add_argument("--limit", type=int, default=None, help="only first N questions")
     ap.add_argument("--k-retrieve", type=int, default=None,
@@ -303,20 +350,24 @@ def main():
     top_k = args.top_k or rp.TOP_K
     KS = tuple(sorted({k for k in BASE_KS if k <= top_k} | {top_k}))
 
+    judge_model = args.judge_model or GEMINI_MODEL
+    judge_llm = None
+    if not args.no_judge:
+        api_key = os.environ.get("GEMINI_API_KEY")
+        if not api_key:
+            sys.exit(f"GEMINI_API_KEY not set. Add it to {ROOT_DIR / '.env'} or use --no-judge.")
+        from google import genai  # imported lazily so --no-judge needs no Gemini client
+        from google.genai import types
+        judge_llm = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=120_000))
+        print(f"Checking judge model {judge_model} ...")
+        check_judge(judge_llm, judge_model)
+
     print("Loading vector store and building hybrid retriever + reranker ...")
     store = rp.load_vector_store()
     retrieve = make_pool_retriever(rp.build_retriever(store))
 
-    judge_model = args.judge_model or rp.CHAT_MODEL
-    judge_llm = None
-    if not args.no_judge:
-        from langchain_ollama import ChatOllama  # imported lazily so --no-judge needs no Ollama client
-        # num_ctx and keep_alive match the pipeline's ChatOllama so Ollama does not
-        # unload and reload the model between the answer call and the judge call.
-        judge_llm = ChatOllama(model=judge_model, temperature=0, format="json",
-                               keep_alive="30m", num_ctx=8192)
-
     results = []
+    judge_off, fail_streak = False, 0
     for row in tqdm(qa, desc="Evaluating", unit="q"):
         r = {"idx": row["question_index"], "question": row["question"]}
         try:
@@ -337,8 +388,14 @@ def main():
             correct, reason = None, "judge skipped"
         elif refused:
             correct, reason = 0, "refusal"
+        elif judge_off:
+            correct, reason = None, "judge disabled after repeated failures"
         else:
-            correct, reason = judge_answer(judge_llm, row["question"], row["answer"], answer)
+            correct, reason = judge_answer(judge_llm, judge_model, row["question"], row["answer"], answer)
+            fail_streak = fail_streak + 1 if correct is None else 0
+            if fail_streak >= MAX_JUDGE_FAIL_STREAK:
+                judge_off = True
+                tqdm.write(f"Judge failed {fail_streak} times in a row ({reason}). Judging disabled for the rest of the run.")
 
         r.update(
             answer=answer,

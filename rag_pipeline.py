@@ -40,7 +40,7 @@ EMBED_MODEL = "qwen3-embedding:0.6b"        # Embedding model (adjustable)
 CHAT_MODEL = "qwen3:4b-instruct"            # Chat model (adjustable)
 RERANK_MODEL = "BAAI/bge-reranker-v2-m3"    # Reranking model (adjustable)
 
-K_RETRIEVE = 25         # candidates fetched by EACH retriever (BM25 and dense)
+K_RETRIEVE = 30         # candidates fetched by EACH retriever (BM25 and dense)
 TOP_K = 5               # chunks kept after reranking
 CHUNK_SIZE = 1500       # Characters per chunk
 CHUNK_OVERLAP = 250     # Overlap between chunks
@@ -169,10 +169,9 @@ def build_retriever(vector_store):
 
 
 def format_docs(docs):
-    """Format retrieved chunks with source citations, sorted chronologically."""
-
+    """Format retrieved chunks with citations in the exact output format."""
     return "\n\n".join(
-        f"Source: [{doc.metadata.get('citation', 'Unknown Source')}]\n"
+        f"[Source: {doc.metadata.get('citation', 'Unknown Source')}]\n"
         f"Content:\n{doc.page_content}"
         for doc in docs
     )
@@ -213,7 +212,7 @@ RULES
 
 3. Every sentence containing factual claims or numerical information
    must end with a citation.
-   Use only citations explicitly provided in CONTEXT.
+   Copy the [Source: ...] tag from CONTEXT exactly, character for character.
    If multiple reports support a claim, cite all relevant sources.
    Never fabricate report names or page numbers.
 

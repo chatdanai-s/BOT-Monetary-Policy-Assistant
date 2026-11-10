@@ -3,32 +3,33 @@
 A locally hosted retrieval-augmented generation (RAG) assistant for answering questions about the Bank of Thailand (BOT) quarterly Monetary Policy Reports (MPR), from 2013 Q1 onward.
 Answers are generated only from retrieved report text and include citations to the source report and PDF page.
 
-The system runs entirely locally through Ollama and HuggingFace, with zero API costs.
+The assistant runs locally through Ollama and HuggingFace with zero API costs. The RAG evaluation script uses the Gemini API (free tier) as the answer judge.
 
 ## Key Results
 
-<sub>Evaluation run: 9 November 2026 (61 questions, 0 evaluation errors)</sub>
+<sub>Evaluation run: 10 November 2026 (95 questions, 0 evaluation errors). LLM judge: `gemini-3.5-flash-lite` against reference answers.</sub>
 
 | Category | Metric | Result |
 |---|---|---:|
-| Retrieval | Recall@1/Recall@5 | **65.6%**/**80.3%** |
-| Retrieval | MRR@5 | **0.7164** |
-| Retrieval | nDCG@5 | **0.7384** |
-| Answer quality | Answer correctness (LLM judge) | **68.9%** |
-| Answer quality | End-to-end success (gold chunk retrieved & answer judged correct) | **62.3%** |
-| Citations | Citation precision | **100.0%** |
-| Citations | Gold citation coverage | **72.1%** |
-| Performance | End-to-end latency, Mean/P95 | **15.04 s**/**22.96 s** |
+| Retrieval | Recall@1/Recall@5 | **61.1%**/**83.2%** |
+| Retrieval | MRR@5 | **0.7025** |
+| Retrieval | nDCG@5 | **0.7351** |
+| Answer quality | Answer correctness (LLM judge: Gemini 3.5 Flash-Lite) | **82.1%** |
+| Answer quality | End-to-end success (gold chunk retrieved & answer judged correct) | **72.6%** |
+| Citations | Citation precision (within retrieved set) | **100.0%** |
+| Citations | Gold citation present in answer | **68.4%** |
+| Performance | End-to-end latency, Mean/P95 | **14.63 s**/**25.64 s** |
 
 ## Overview
 
 1. **Download reports:** `scrape_BOT_MPR.py` downloads the MPR PDFs from the BOT website into `documents/`.
-2. **PDF Loading and Chunking:** `PyPDFLoader` loads every PDF page in `documents/`and splits content into overlapping chunks with with PyMuPDF and RecursiveCharacterTextSplitter.
+2. **PDF Loading and Chunking:** `PyPDFLoader` loads the PDF pages in `documents/`, and splits content into overlapping chunks with with `PyMuPDF` and RecursiveCharacterTextSplitter.
 3. **Citation Metadata:** Each chunk retains its source filename and PDF page for citation (`<filename>, PDF p. <page>`).
-5. **Embedding:** `qwen3-embedding:0.6b` embeds each chunks and stores them in ChromaDB.
-6. **Retrieval:** Finds relevant chunks via hybrid retrival (BM25 and dense vector).
-7. **Rerank candidates:** `BAAI/bge-reranker-v2-m3` scores the candidate passages against the question; the highest-ranked passages are passed to the generator.
-8. **Generation:** `qwen3:4b-instruct` generates an answer using the retrieved context and citation instructions.
+4. **Embedding:** `qwen3-embedding:0.6b` embeds the chunks and stores them in ChromaDB.
+5. **Retrieval:** Hybrid retrieval combines BM25 and dense-vector search, with equal weights (0.5/0.5). Each retriever returns up to 30 candidates.
+6. **Reranking:** `BAAI/bge-reranker-v2-m3` scores the candidate passages against the question; the top 5 passages are passed to the generator.
+7. **Generation:** `qwen3:4b-instruct` generates an answer using the retrieved context and citation instructions.
+8. **Evaluation (optional):** `tests/rag_test.py` runs a question set through the pipeline and scores retrieval, answers, citations and format. Answer correctness is graded by `gemini-3.5-flash-lite` via the Gemini API free tier.
 
 ## Tech Stack
 
@@ -36,12 +37,14 @@ The system runs entirely locally through Ollama and HuggingFace, with zero API c
 |-----------|------------|
 | **Interface** | Terminal (question loop) |
 | **RAG Framework** | LangChain |
-| **PDF Loading** | PyPDFLoader via DirectoryLoader |
-| **Text Chunking** | RecursiveCharacterTextSplitter (1000 characters, 200 overlap) |
-| **Embedding Model** | nomic-embed-text (Ollama) |
+| **PDF Loading** | `PyPDFLoader` and `PyMuPDF` |
+| **Text Chunking** | RecursiveCharacterTextSplitter (1,500 characters, 250 overlap) |
+| **Embedding Model** | `qwen3-embedding:0.6b` (Ollama) |
 | **Vector Database** | ChromaDB (collection: `bot_mpr_documents`) |
-| **Retriever** | MMR search (k = 8, fetch_k = 30, lambda_mult = 0.7) |
-| **LLM** | Ollama + qwen3:4b-instruct |
+| **Retriever** | Hybrid BM25 + dense retrieval (equal weights) |
+| **Reranker** | `BAAI/bge-reranker-v2-m3` |
+| **LLM** | Ollama + `qwen3:4b-instruct` |
+| **Evaluation Judge** | `gemini-3.5-flash-lite` (free tier API) |
 | **Data Source** | BOT Monetary Policy Reports (PDF) |
 | **Programming Language** | Python |
 
@@ -51,12 +54,12 @@ The system runs entirely locally through Ollama and HuggingFace, with zero API c
 .
 ├── documents/            Downloaded MPR PDFs (created by the scraper)
 ├── chroma_db/            Persisted ChromaDB vector store
-├── tests/
+├── tests/                Evaluation script (rag_test.py) and QA set (qa_pairs.json)
 ├── scrape_BOT_MPR.py     Downloads MPR PDFs from the BOT website
 ├── build_vector_db.bat   Builds the vector store (runs rag_pipeline.py --build)
 ├── rag_pipeline.py       Vector store building and question answering
 ├── README.md
-├── .env
+├── .env                  GEMINI_API_KEY, used only by the evaluation script
 ├── .gitattributes
 └── .gitignore
 ```
@@ -73,7 +76,7 @@ The system runs entirely locally through Ollama and HuggingFace, with zero API c
 1. **Pull the Ollama models**
 
 ```text
-ollama pull nomic-embed-text
+ollama pull qwen3-embedding:0.6b
 ollama pull qwen3:4b-instruct
 ```
 
@@ -117,24 +120,29 @@ python rag_pipeline.py
 ## Architecture
 
 ```text
- scrape_BOT_MPR.py (BOT website → documents/*.pdf)
+   scrape_BOT_MPR.py (BOT website → documents/*.pdf)
                       │
                       ▼
           PyPDFLoader (PDF → pages)
                       │
                       ▼
-       RecursiveCharacterTextSplitter
-          (1000 chars, 200 overlap)
-    Citation metadata added to each chunk
+        RecursiveCharacterTextSplitter
+          (1500 chars, 250 overlap)
+     Citation metadata added to each chunk
                       │
                       ▼
-       nomic-embed-text Embeddings (Ollama)
+         qwen3-embedding:0.6b (Ollama)
                       │
                       ▼
            ChromaDB Vector Database
                       │
                       ▼
-      MMR Retrieval (k = 8, fetch_k = 30)
+        Hybrid BM25 + Dense Retrieval
+        (30 candidates per retriever)
+                      │
+                      ▼
+        BGE Cross-Encoder Reranking
+             (top 5 passages)
                       │
                       ▼
    Prompt = Retrieved Context + User Question
@@ -157,22 +165,6 @@ The prompt instructs the model to:
 - Cite every factual claim as `[Source: MPR_YYYY_QN, PDF p. X]`
 - Start with a direct answer and end with a short summary
 
-## Configuration
-
-Settings are defined at the top of `rag_pipeline.py`:
-
-| Setting | Value |
-|---------|-------|
-| `DOCS_DIR` | `documents/` |
-| `CHROMA_DIR` | `chroma_db/` |
-| `EMBED_MODEL` | `nomic-embed-text` |
-| `CHAT_MODEL` | `qwen3:4b` |
-| `CHUNK_SIZE` | 1000 |
-| `CHUNK_OVERLAP` | 200 |
-| `COLLECTION_NAME` | `bot_mpr_documents` |
-
-Chunk IDs are generated from the source file, page, and chunk position. If `CHUNK_SIZE` or `CHUNK_OVERLAP` is changed, delete `chroma_db/` and rebuild.
-
 ## Limitations
 
 ### Hardware Constraints
@@ -187,14 +179,13 @@ The available RAM and VRAM constrains the selection of local models.
 
 ### Current Limitations
 
-- Only PDF files in `documents/` are loaded.
-- Text is extracted with PyPDFLoader; scanned PDFs without a text layer are not OCR'd and may produce poor results.
-- Retrieval uses MMR search without reranking.
-- Fixed chunk size (1000 characters) and overlap (200 characters); chunking is not adaptive.
-- No query rewriting or multi-stage retrieval.
+- Text is extracted with PyMuPdf; scanned PDFs without a text layer are not OCR'd and may produce poor results.
+- Fixed chunk size (1,500 characters) and overlap (250 characters); chunking is not adaptive.
+- No query rewriting.
 - Each question is answered independently; there is no conversation memory.
 - Local inference on a small model is slower and less accurate than cloud-hosted LLMs.
 - Like all RAG systems, incorrect or unsupported answers remain possible if relevant context is not retrieved.
+- Answer correctness comes from an LLM judge (Gemini 3.5 Flash-Lite), which can disagree with a human grader.
 
 ## Data Source
 
