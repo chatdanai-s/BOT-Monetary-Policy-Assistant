@@ -115,50 +115,77 @@ def load_vector_store():
     )
 
 
+MONTH_Q = {"march": 1, "june": 2, "sept": 3, "september": 3, "december": 4}
+_REPORT = r"(?:mpr|monetary\s+policy\s+report|report)\b"
+RID_PATTERNS = [
+    (re.compile(rf"\bMPR[_\s-]?(20\d\d)[_\s-]?Q([1-4])\b", re.I), lambda m: (m[1], m[2])),
+    (re.compile(rf"\b(20\d\d)[\s_/-]*Q([1-4])\s+{_REPORT}", re.I), lambda m: (m[1], m[2])),
+    (re.compile(rf"\bQ([1-4])[\s_/-]*(20\d\d)\s+{_REPORT}", re.I), lambda m: (m[2], m[1])),
+    (re.compile(rf"\b(march|june|sept(?:ember)?|december)\s+(20\d\d)\s+{_REPORT}", re.I),
+     lambda m: (m[2], str(MONTH_Q[m[1].lower()]))),
+]
+
+def parse_report_files(question):
+    """Return report PDF names the question explicitly names, e.g. {'MPR_2023_Q2.pdf'}."""
+    files = set()
+    for pat, get in RID_PATTERNS:
+        for m in pat.finditer(question):
+            y, q = get(m)
+            files.add(f"MPR_{y}_Q{q}.pdf")
+    return files
+
+
 def build_retriever(vector_store):
     """Build BM25 + dense + reranker once. Returns retrieve(question, k_retrieve, top_k)."""
-    # Setup BM25 retrieval
+
     data = vector_store.get(include=["documents", "metadatas"])
-    docs = [
-        Document(page_content=t, metadata=m)
-        for t, m in zip(data["documents"], data["metadatas"])
-    ]
+    docs = [Document(page_content=t, metadata=m)
+            for t, m in zip(data["documents"], data["metadatas"])]
+    all_files = {d.metadata["file"] for d in docs}
+
     def financial_tokenizer(text):
         text = text.lower()
-
         return re.findall(
             r"[a-z]+\d+[a-z0-9]*"
             r"|\d+[a-z]+\d*[a-z0-9]*"
             r"|[+-]?\d+(?:,\d{3})*(?:\.\d+)?%?"
             r"|[a-z]+(?:[&'/.-][a-z0-9]+)*",
-            text
+            text,
         )
 
     reranker_device = "cuda" if torch.cuda.is_available() else "cpu"
-
-    # Begin hybrid retrieval
-    bm25 = BM25Retriever.from_documents(
-        docs,
-        k=K_RETRIEVE,
-        preprocess_func=financial_tokenizer
-    )
-    dense = vector_store.as_retriever(search_kwargs={"k": K_RETRIEVE})
-    hybrid = EnsembleRetriever(retrievers=[bm25, dense],
-                               weights=[0.5, 0.5])
     reranker = CrossEncoder(
         RERANK_MODEL,
-        max_length=512,
+        max_length=768,
         device=reranker_device,
-        model_kwargs=(
-            {"torch_dtype": torch.float16}
-            if reranker_device == "cuda" else {}
-        )
+        model_kwargs=({"torch_dtype": torch.float16} if reranker_device == "cuda" else {}),
     )
 
+    bm25_cache = {}
+
+    def get_bm25(files, k):
+        key = tuple(sorted(files)) if files else ()
+        if key not in bm25_cache:
+            sub = [d for d in docs if not files or d.metadata["file"] in files]
+            bm25_cache[key] = BM25Retriever.from_documents(
+                sub, k=k, preprocess_func=financial_tokenizer)
+        bm25_cache[key].k = k
+        return bm25_cache[key]
+
+    def hybrid_candidates(question, k, files):
+        kwargs = {"k": k}
+        if files:
+            kwargs["filter"] = {"file": {"$in": sorted(files)}}
+        dense = vector_store.as_retriever(search_kwargs=kwargs)
+        hybrid = EnsembleRetriever(retrievers=[get_bm25(files, k), dense],
+                                   weights=[0.5, 0.5])
+        return hybrid.invoke(question)
+
     def retrieve(question, k_retrieve=K_RETRIEVE, top_k=TOP_K):
-        bm25.k = k_retrieve
-        dense.search_kwargs["k"] = k_retrieve
-        candidates = hybrid.invoke(question)
+        files = parse_report_files(question) & all_files
+        candidates = hybrid_candidates(question, k_retrieve, files) if files else []
+        if len(candidates) < 3:                       # no report named, or filter too thin
+            candidates = hybrid_candidates(question, k_retrieve, set())
         if not candidates:
             return []
         scores = reranker.predict([(question, d.page_content) for d in candidates])
@@ -183,7 +210,7 @@ def query_documents(retrieve, question, k_retrieve=K_RETRIEVE, top_k=TOP_K):
     # Initialize LLM
     llm = ChatOllama(
         model=CHAT_MODEL,
-        temperature=0.1,
+        temperature=0,
         think=False,
         keep_alive="30m",
         num_ctx=8192,
@@ -192,62 +219,27 @@ def query_documents(retrieve, question, k_retrieve=K_RETRIEVE, top_k=TOP_K):
     # Prompt template for RAG system
     prompt = ChatPromptTemplate.from_template(
             """
-You are a financial and research assistant specializing in Thailand's
+You are an expert financial and research assistant specializing in Thailand's
 monetary policy and macroeconomy.
 
-Your ONLY knowledge source is the Bank of Thailand (BOT) quarterly
-Monetary Policy Reports (MPR) from 2013 Q1 through today's date: {today}.
-
-Answer the user's question using ONLY the retrieved context.
+You answer questions about Thailand's monetary policy using ONLY the
+Bank of Thailand Monetary Policy Reports (MPR) in CONTEXT. Today is {today}.
 
 RULES
-1. Use ONLY information explicitly supported by CONTEXT.
-   Never introduce facts, statistics, assumptions, figures, or dates
-   from your own knowledge.
-
-2. If CONTEXT does not contain sufficient information to answer,
-   reply exactly:
-   "The provided reports do not contain this information."
-   Then briefly state what information is missing. Do not guess.
-
-3. Every sentence containing factual claims or numerical information
-   must end with a citation.
-   Copy the [Source: ...] tag from CONTEXT exactly, character for character.
-   If multiple reports support a claim, cite all relevant sources.
-   Never fabricate report names or page numbers.
-
-   Example:
-   Headline inflation averaged 1.2% in 2024 [Source: MPR_2025_Q1, PDF p. 14].
-
-4. Include relevant numerical evidence whenever available.
-   Preserve numerical values, units, and reporting periods exactly
-   as stated in the reports.
-   Distinguish year-on-year (YoY) from quarter-on-quarter (QoQ)
-   whenever specified.
-
-5. Identify reports using their MPR_YYYY_QN naming convention.
-   Distinguish historical forecasts from actual outcomes.
-   Do not present forecasts from past reports as current projections.
-   When reports contain conflicting information, prioritize the
-   most recent relevant report and explicitly identify its period.
-
-6. Do not explain causes, relationships, or economic implications
-   unless explicitly supported by CONTEXT.
-
-7. When comparing periods, ensure that the compared figures use
-   compatible units, definitions, and reporting periods.
-   Do not calculate or derive additional figures unless the question
-   explicitly requires it and the necessary data is available.
+1. Use only facts written in CONTEXT. No outside knowledge, no guessing, no causes or implications unless CONTEXT states them.
+2. If CONTEXT does not answer the question, say "The provided reports do not contain this information." and briefly name what is missing.
+   If it answers only part, give that part and name what is missing.
+3. Use the report the question names if specified. "2023 Q2" means MPR_2023_Q2. Ignore other reports unless the question asks for them.
+4. Copy numbers, units, periods and direction words exactly (YoY vs QoQ, revised up, revised down, unchanged).
+   For a revision, give the previous and the new value. Do not calculate new figures.
+5. Separate forecasts from actual outcomes.
+6. End every sentence or bullet that states a fact with its source, copied exactly from the CONTEXT tag, like [Source: MPR_2025_Q1, PDF p. 14].
 
 FORMAT
-- Begin with a direct answer in the first sentence.
-- Do not begin with a bullet point.
-- Follow with bullet points containing supporting evidence.
-- Include numerical values and reporting periods where available.
-- End with "Summary:" followed by one concise sentence.
-- Do not mention context or retrieved text in the answer.
-- Use this exact citation format:
-  [Source: MPR_YYYY_QN, PDF p. X]
+- First sentence: the direct answer.
+- Then add detail in whatever layout is easiest for a person to read: short bullets for several figures or points, a short paragraph for one explanation.
+- Keep it short. Do not repeat yourself. Do not mention "context".
+- Last line: "Summary:" followed by one short sentence.
 
 CONTEXT
 {context}

@@ -70,9 +70,23 @@ REFERENCE: {reference}
 
 CANDIDATE: {candidate}
 
-Verdict "correct" only if the candidate gives the same main answer as the reference, with the same key numbers,
-periods and direction of change, and does not contradict it. Extra non-conflicting detail is fine.
-Ignore citations and formatting. A candidate saying the information is unavailable is "incorrect".
+Context: the REFERENCE was written from ONE source (a single report and page).
+The CANDIDATE comes from a retrieval system that may combine several sources, so it often has more detail,
+or figures from other reports and periods, than the REFERENCE. This is expected. Do NOT penalize it.
+
+Verdict "correct" if the candidate's main answer to the question matches the REFERENCE: same key numbers, periods
+and direction of change (up, down, unchanged), and no contradiction of the REFERENCE for the same report and period.
+Extra information is fine, including different figures from other reports or periods, as long as it is presented as
+additional and the REFERENCE's answer is still given as the answer to the question.
+
+Verdict "incorrect" if any of these hold:
+- the main answer differs from the REFERENCE
+- a key number, period or direction is wrong
+- a figure from another report or period replaces the REFERENCE's answer as the answer
+- the candidate contradicts the REFERENCE for the same report and period
+- the candidate says the information is unavailable
+
+Ignore citations and formatting.
 
 Reply with JSON only: {{"verdict": "correct" or "incorrect", "reason": "<one short sentence>"}}"""
 

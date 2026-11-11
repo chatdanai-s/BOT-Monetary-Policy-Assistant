@@ -18,6 +18,23 @@ MONTH_AXIS_RE = re.compile(r"^(Q[1-4]-\d{2}|[A-Z][a-z]{2}-\d{2}|\d{4})$")  # Q1-
 MIN_PAGE_CHARS = 80                                            # skip cover/empty pages
 
 
+STEM_RE = re.compile(r"MPR_(\d{4})_Q([1-4])")
+QUARTER_MONTH = {1: "March", 2: "June", 3: "September", 4: "December"}
+
+def _make_header(stem, section, page, total):
+    """Header tuned for BM25 (exact tokens) and dense embedding (natural phrasing)."""
+    sec = section or "n/a"
+    m = STEM_RE.search(stem)
+    if not m:
+        return f"[{stem} | {sec} | page {page}/{total}]"
+    year, q = m.group(1), int(m.group(2))
+    return (
+        f"[{stem}] Bank of Thailand Monetary Policy Report {year} Q{q} "
+        f"({QUARTER_MONTH[q]} {year} report, quarter {q} of {year}). "
+        f"Section: {sec}. PDF p. {page}."
+    )
+
+
 def _clean_block(text: str) -> str:
     """Drop page numbers and chart axis noise, keep real sentences/labels."""
     kept = []
@@ -108,7 +125,7 @@ def load_and_chunk_pdfs(docs_dir, chunk_size=1500, chunk_overlap=150):
             section, body = _page_text(page)
             if len(body) < MIN_PAGE_CHARS:
                 continue
-            header = f"[{pdf_path.stem} | {section or 'n/a'} | page {i}/{total}]"
+            header = _make_header(pdf_path.stem, section, i, total)
             base_meta = {"source": str(pdf_path), "file": pdf_path.name,
                          "page": i, "section": section}
             parts = [body] if len(body) <= chunk_size else splitter.split_text(body)

@@ -8,7 +8,7 @@ Usage (from the project root or from the tests/ folder):
     python tests/answer_generator.py
 
 Optional environment variables:
-    SAMPLE_SIZE    Number of chunks to sample (default: 250)
+    SAMPLE_SIZE    Number of chunks to sample (default: 300)
     RANDOM_SEED    Reproducible sampling seed (default: 42)
 
 Output:
@@ -36,7 +36,7 @@ CHUNK_SIZE = 1500
 CHUNK_OVERLAP = 250
 
 OUTPUT_FILE = ROOT_DIR / "tests" / "answer_sample.txt"
-SAMPLE_SIZE = int(os.environ.get("SAMPLE_SIZE", 250))
+SAMPLE_SIZE = int(os.environ.get("SAMPLE_SIZE", 300))
 RANDOM_SEED = int(os.environ.get("RANDOM_SEED", 42))
 
 
