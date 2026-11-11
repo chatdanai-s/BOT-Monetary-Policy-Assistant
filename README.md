@@ -7,18 +7,18 @@ The assistant runs locally through Ollama and HuggingFace with zero API costs. T
 
 ## Key Results
 
-<sub>Evaluation run: 10 November 2026 (95 questions, 0 evaluation errors). LLM judge: `gemini-3.5-flash-lite` against reference answers.</sub>
+<sub>Evaluation run: 11 November 2026 (185 questions, 0 evaluation errors). LLM judge: `gemini-3.5-flash-lite` against reference answers.</sub>
 
 | Category | Metric | Result |
 |---|---|---:|
-| Retrieval | Recall@1/Recall@5 | **61.1%**/**83.2%** |
-| Retrieval | MRR@5 | **0.7025** |
-| Retrieval | nDCG@5 | **0.7351** |
-| Answer quality | Answer correctness (LLM judge: Gemini 3.5 Flash-Lite) | **82.1%** |
-| Answer quality | End-to-end success (gold chunk retrieved & answer judged correct) | **72.6%** |
+| Retrieval | Recall@1/Recall@5 | **62.2%**/**92.4%** |
+| Retrieval | MRR@5 | **0.7387** |
+| Retrieval | nDCG@5 | **0.7852** |
+| Answer quality | Answer correctness (LLM judge: Gemini 3.5 Flash-Lite) | **90.3%** |
+| Answer quality | End-to-end success (gold chunk retrieved & answer judged correct) | **86.5%** |
 | Citations | Citation precision (within retrieved set) | **100.0%** |
-| Citations | Gold citation present in answer | **68.4%** |
-| Performance | End-to-end latency, Mean/P95 | **14.63 s**/**25.64 s** |
+| Citations | Gold citation present in answer | **75.1%** |
+| Performance | End-to-end latency, Mean/P95 | **17.73 s**/**26.77 s** |
 
 ## Overview
 
