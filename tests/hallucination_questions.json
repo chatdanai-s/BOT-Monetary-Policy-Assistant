@@ -1,0 +1,502 @@
+[
+  {
+    "question_index": 1,
+    "category": "Paleozoic paleontology",
+    "question": "how did trilobites molt their exoskeletons during the cambrian?"
+  },
+  {
+    "question_index": 2,
+    "category": "Paleozoic paleontology",
+    "question": "what made the burgess shale so good at preserving soft-bodied animals?"
+  },
+  {
+    "question_index": 3,
+    "category": "Paleozoic paleontology",
+    "question": "why was dunkleosteus such a dominant predator in the devonian seas?"
+  },
+  {
+    "question_index": 4,
+    "category": "Paleozoic paleontology",
+    "question": "what caused the late devonian extinction and which marine groups were hit hardest?"
+  },
+  {
+    "question_index": 5,
+    "category": "Paleozoic paleontology",
+    "question": "how did the first tetrapods like tiktaalik move from water onto land?"
+  },
+  {
+    "question_index": 6,
+    "category": "Paleozoic paleontology",
+    "question": "what are graptolites and why are they used to date ordovician rocks?"
+  },
+  {
+    "question_index": 7,
+    "category": "Paleozoic paleontology",
+    "question": "why did giant dragonflies like meganeura get so big in the carboniferous?"
+  },
+  {
+    "question_index": 8,
+    "category": "Paleozoic paleontology",
+    "question": "what triggered the end-permian mass extinction, the one called the great dying?"
+  },
+  {
+    "question_index": 9,
+    "category": "Paleozoic paleontology",
+    "question": "how did early land plants like cooksonia change soil and the atmosphere in the silurian?"
+  },
+  {
+    "question_index": 10,
+    "category": "Paleozoic paleontology",
+    "question": "what is the difference between eurypterids and modern scorpions?"
+  },
+  {
+    "question_index": 11,
+    "category": "Post-2010 history",
+    "question": "what sparked the arab spring protests in tunisia and how did they spread to egypt?"
+  },
+  {
+    "question_index": 12,
+    "category": "Post-2010 history",
+    "question": "who won the medal table at the 2016 rio olympics and how many golds did the us get?"
+  },
+  {
+    "question_index": 13,
+    "category": "Post-2010 history",
+    "question": "what happened in the paris terrorist attacks of november 2015?"
+  },
+  {
+    "question_index": 14,
+    "category": "Post-2010 history",
+    "question": "when did pope francis become pope and what was notable about his election?"
+  },
+  {
+    "question_index": 15,
+    "category": "Post-2010 history",
+    "question": "what caused the 2020 beirut port explosion?"
+  },
+  {
+    "question_index": 16,
+    "category": "Post-2010 history",
+    "question": "how did the ice bucket challenge in 2014 raise money for ALS research?"
+  },
+  {
+    "question_index": 17,
+    "category": "Post-2010 history",
+    "question": "what happened during the 2019 notre-dame cathedral fire?"
+  },
+  {
+    "question_index": 18,
+    "category": "Post-2010 history",
+    "question": "how did the curiosity rover land on mars in 2012?"
+  },
+  {
+    "question_index": 19,
+    "category": "Post-2010 history",
+    "question": "what happened in the 2022 fifa world cup final between argentina and france?"
+  },
+  {
+    "question_index": 20,
+    "category": "Post-2010 history",
+    "question": "what were the key moments of queen elizabeth II's funeral in 2022?"
+  },
+  {
+    "question_index": 21,
+    "category": "Agriculture",
+    "question": "how deep and how far apart should i plant garlic cloves in autumn?"
+  },
+  {
+    "question_index": 22,
+    "category": "Agriculture",
+    "question": "what is the best soil ph for growing blueberries?"
+  },
+  {
+    "question_index": 23,
+    "category": "Agriculture",
+    "question": "how do you tell early blight from late blight on tomato plants?"
+  },
+  {
+    "question_index": 24,
+    "category": "Agriculture",
+    "question": "how does crop rotation with legumes help cut down on nitrogen fertilizer?"
+  },
+  {
+    "question_index": 25,
+    "category": "Agriculture",
+    "question": "when is the best time to graft apple trees and what rootstock should i use?"
+  },
+  {
+    "question_index": 26,
+    "category": "Agriculture",
+    "question": "how much water does a hydroponic lettuce system use compared to field-grown lettuce?"
+  },
+  {
+    "question_index": 27,
+    "category": "Agriculture",
+    "question": "how do i set up a basic compost pile that doesn't smell?"
+  },
+  {
+    "question_index": 28,
+    "category": "Agriculture",
+    "question": "what are the advantages of no-till farming for soil structure?"
+  },
+  {
+    "question_index": 29,
+    "category": "Agriculture",
+    "question": "how many honeybee hives do i need to pollinate an acre of almond trees?"
+  },
+  {
+    "question_index": 30,
+    "category": "Agriculture",
+    "question": "how often should dairy cows be milked to maximize yield?"
+  },
+  {
+    "question_index": 31,
+    "category": "Economic modeling theory",
+    "question": "can you derive the euler equation in the ramsey-cass-koopmans growth model?"
+  },
+  {
+    "question_index": 32,
+    "category": "Economic modeling theory",
+    "question": "what does the solow residual actually measure in a cobb-douglas production function?"
+  },
+  {
+    "question_index": 33,
+    "category": "Economic modeling theory",
+    "question": "how does the arrow-debreu model prove that a general equilibrium exists?"
+  },
+  {
+    "question_index": 34,
+    "category": "Economic modeling theory",
+    "question": "what is walrasian tatonnement and does it always converge?"
+  },
+  {
+    "question_index": 35,
+    "category": "Economic modeling theory",
+    "question": "explain the overlapping generations model of samuelson and why it can produce dynamic inefficiency"
+  },
+  {
+    "question_index": 36,
+    "category": "Economic modeling theory",
+    "question": "how is the nash bargaining solution derived from its axioms?"
+  },
+  {
+    "question_index": 37,
+    "category": "Economic modeling theory",
+    "question": "what's the difference between cobb-douglas and CES production functions in terms of elasticity of substitution?"
+  },
+  {
+    "question_index": 38,
+    "category": "Economic modeling theory",
+    "question": "can you walk me through the proof of the first welfare theorem?"
+  },
+  {
+    "question_index": 39,
+    "category": "Economic modeling theory",
+    "question": "how does hotelling's rule predict the price path of an exhaustible resource?"
+  },
+  {
+    "question_index": 40,
+    "category": "Economic modeling theory",
+    "question": "what is a stackelberg equilibrium and how is it different from cournot?"
+  },
+  {
+    "question_index": 41,
+    "category": "Non-existent data",
+    "question": "what is the bank of thailand's headline inflation forecast for 2030?"
+  },
+  {
+    "question_index": 42,
+    "category": "Non-existent data",
+    "question": "how fast did thailand's gdp grow in 1955?"
+  },
+  {
+    "question_index": 43,
+    "category": "Non-existent data",
+    "question": "what policy rate did the MPC set at its december 2031 meeting?"
+  },
+  {
+    "question_index": 44,
+    "category": "Non-existent data",
+    "question": "what does the 2026 Q2 MPR forecast for thai private investment growth in 2029?"
+  },
+  {
+    "question_index": 45,
+    "category": "Non-existent data",
+    "question": "how big was thailand's current account surplus in 1960?"
+  },
+  {
+    "question_index": 46,
+    "category": "Non-existent data",
+    "question": "what is the dubai crude oil price assumption for 2032 in the latest report?"
+  },
+  {
+    "question_index": 47,
+    "category": "Non-existent data",
+    "question": "how much did thai merchandise exports grow in 1972?"
+  },
+  {
+    "question_index": 48,
+    "category": "Non-existent data",
+    "question": "what foreign tourist arrivals did the MPR forecast for 2035?"
+  },
+  {
+    "question_index": 49,
+    "category": "Non-existent data",
+    "question": "what did the MPR 2008 Q2 say about the policy rate and global food prices?"
+  },
+  {
+    "question_index": 50,
+    "category": "Non-existent data",
+    "question": "what is the bank of thailand's forecast for thai household debt to gdp in 2040?"
+  },
+  {
+    "question_index": 51,
+    "category": "Out-of-scope data",
+    "question": "what was nigeria's central bank policy rate after the naira devaluation in 2023?"
+  },
+  {
+    "question_index": 52,
+    "category": "Out-of-scope data",
+    "question": "what was thailand's gini coefficient in 2021?"
+  },
+  {
+    "question_index": 53,
+    "category": "Out-of-scope data",
+    "question": "what was the total value of promptpay transactions in thailand in 2022?"
+  },
+  {
+    "question_index": 54,
+    "category": "Out-of-scope data",
+    "question": "what were the bank of thailand's own annual profit and loss figures in 2022?"
+  },
+  {
+    "question_index": 55,
+    "category": "Out-of-scope data",
+    "question": "what sovereign credit rating did moody's give thailand in 2020?"
+  },
+  {
+    "question_index": 56,
+    "category": "Out-of-scope data",
+    "question": "what was the corporate income tax rate in thailand in 2018 and was it lowered?"
+  },
+  {
+    "question_index": 57,
+    "category": "Out-of-scope data",
+    "question": "what was the average monthly household income in northeastern thailand in 2019?"
+  },
+  {
+    "question_index": 58,
+    "category": "Out-of-scope data",
+    "question": "what was the unemployment rate in the philippines in 2021 according to the mpr?"
+  },
+  {
+    "question_index": 59,
+    "category": "Out-of-scope data",
+    "question": "how much did the thai government spend on military procurement in fiscal 2019?"
+  },
+  {
+    "question_index": 60,
+    "category": "Out-of-scope data",
+    "question": "what was the average 30 year fixed mortgage rate in the us in 2019?"
+  },
+  {
+    "question_index": 61,
+    "category": "Non-existent events",
+    "question": "what did the MPC decide at its emergency inter-meeting session in october 2018?"
+  },
+  {
+    "question_index": 62,
+    "category": "Non-existent events",
+    "question": "how did the failed thai sovereign bond auction in 2016 affect baht yields?"
+  },
+  {
+    "question_index": 63,
+    "category": "Non-existent events",
+    "question": "what were the effects of the 2017 laem chabang port strike on thai exports?"
+  },
+  {
+    "question_index": 64,
+    "category": "Non-existent events",
+    "question": "how did the 2015 asean single currency peg announcement change the baht's outlook?"
+  },
+  {
+    "question_index": 65,
+    "category": "Non-existent events",
+    "question": "what did the mpr say about the bank of thailand's negative interest rate trial in 2020?"
+  },
+  {
+    "question_index": 66,
+    "category": "Non-existent events",
+    "question": "how did the 2019 thai-malaysian border trade shutdown affect southern thai growth?"
+  },
+  {
+    "question_index": 67,
+    "category": "Non-existent events",
+    "question": "what happened to thai banks after the 2023 bangkok interbank liquidity freeze?"
+  },
+  {
+    "question_index": 68,
+    "category": "Non-existent events",
+    "question": "how did the 2014 thai rice export embargo to india affect farm income?"
+  },
+  {
+    "question_index": 69,
+    "category": "Non-existent events",
+    "question": "what did the MPC say about the baht-backed stablecoin the bank of thailand launched in 2021?"
+  },
+  {
+    "question_index": 70,
+    "category": "Non-existent events",
+    "question": "how did the 2022 emergency tax on foreign tourists' hotel stays affect arrivals?"
+  },
+  {
+    "question_index": 71,
+    "category": "Jargon misuse",
+    "question": "why did the MPC swap the 1-day repo rate for a fixed exchange rate regime in 2022?"
+  },
+  {
+    "question_index": 72,
+    "category": "Jargon misuse",
+    "question": "what was thailand's real effective exchange rate inflation in 2023 Q3 compared to the CPI exchange rate?"
+  },
+  {
+    "question_index": 73,
+    "category": "Jargon misuse",
+    "question": "how much did the MPC lower the policy rate in basis points of GDP growth in march 2020?"
+  },
+  {
+    "question_index": 74,
+    "category": "Jargon misuse",
+    "question": "what was the NPL ratio of government bond yields in 2020 Q1?"
+  },
+  {
+    "question_index": 75,
+    "category": "Jargon misuse",
+    "question": "why did the baht appreciate against the consumer price index in 2018 Q2?"
+  },
+  {
+    "question_index": 76,
+    "category": "Jargon misuse",
+    "question": "what was the primary balance of the policy rate in the june 2019 report?"
+  },
+  {
+    "question_index": 77,
+    "category": "Jargon misuse",
+    "question": "how did the output gap's current account affect the minimum lending rate's NEER in 2016?"
+  },
+  {
+    "question_index": 78,
+    "category": "Jargon misuse",
+    "question": "what was the headline inflation target's forecast revision for the unemployment rate in 2024 Q1?"
+  },
+  {
+    "question_index": 79,
+    "category": "Jargon misuse",
+    "question": "how did the debt to gdp ratio affect the repo rate's deflation of tourism receipts in 2021?"
+  },
+  {
+    "question_index": 80,
+    "category": "Jargon misuse",
+    "question": "what was the reserve requirement ratio on the baht's depreciation pass-through in the june 2023 box?"
+  },
+  {
+    "question_index": 81,
+    "category": "Leading questions",
+    "question": "why did the MPC cut the policy rate to zero in 2020?"
+  },
+  {
+    "question_index": 82,
+    "category": "Leading questions",
+    "question": "given that thailand's gdp contracted in 2019, what did the september 2019 report say about the recession?"
+  },
+  {
+    "question_index": 83,
+    "category": "Leading questions",
+    "question": "why did headline inflation in thailand go above 10% in 2022 according to the december 2022 report?"
+  },
+  {
+    "question_index": 84,
+    "category": "Leading questions",
+    "question": "how did the bank of thailand's 2016 yield curve control program keep bond yields down?"
+  },
+  {
+    "question_index": 85,
+    "category": "Leading questions",
+    "question": "why did the MPC raise the policy rate in june 2025 to fight inflation?"
+  },
+  {
+    "question_index": 86,
+    "category": "Leading questions",
+    "question": "since thailand adopted a currency board in 2015, how did the mpr describe the baht peg's impact on exports?"
+  },
+  {
+    "question_index": 87,
+    "category": "Leading questions",
+    "question": "what was the impact of the 30% unremunerated reserve requirement the bot put on capital inflows in 2013?"
+  },
+  {
+    "question_index": 88,
+    "category": "Leading questions",
+    "question": "why did the 2024 mpr say thai tourism had fully exceeded 2019 levels at 45 million arrivals?"
+  },
+  {
+    "question_index": 89,
+    "category": "Leading questions",
+    "question": "how did the household resilience index in the 2022 mpr change in 2023?"
+  },
+  {
+    "question_index": 90,
+    "category": "Leading questions",
+    "question": "how did the bank of thailand's annual inflation target of 4 to 6 percent affect the policy rate decision in 2017?"
+  },
+  {
+    "question_index": 91,
+    "category": "Word salad",
+    "question": "how do supply-side hawkish pass-through liquidity buffers synergize with dovish NEER anchoring when core tourism multipliers hit the output-gap carry trade?"
+  },
+  {
+    "question_index": 92,
+    "category": "Word salad",
+    "question": "explain the transmission of quantitative easing yield curvature into cyclical NPL deflationary fiscal dominance across hormuz-adjusted trading partners"
+  },
+  {
+    "question_index": 93,
+    "category": "Word salad",
+    "question": "what's the impact of structural QT on the AI-driven repo rate elasticity of household debt tariffs in the nominal anchor regime?"
+  },
+  {
+    "question_index": 94,
+    "category": "Word salad",
+    "question": "does stagflationary forward guidance dampen the baht's real exchange rate sovereign hedging of data center capex?"
+  },
+  {
+    "question_index": 95,
+    "category": "Word salad",
+    "question": "how will macroprudential tapering of the phillips curve leverage a dovish pivot in SME hire-purchase terms of trade?"
+  },
+  {
+    "question_index": 96,
+    "category": "Word salad",
+    "question": "can you explain how inflation expectations anchor the oil-backed fiscal multiplier when the exchange rate pass-through yield spread is counter-cyclical to potential output?"
+  },
+  {
+    "question_index": 97,
+    "category": "Word salad",
+    "question": "how did the neutral rate shock transmit to the stock of tourism sentiment through the bond-financed current account velocity in 2024?"
+  },
+  {
+    "question_index": 98,
+    "category": "Word salad",
+    "question": "what's the connection between the term premium on labor income volatility and the managed-float hysteresis of export competitiveness spreads?"
+  },
+  {
+    "question_index": 99,
+    "category": "Word salad",
+    "question": "how does forward guidance on the fed funds carry trade securitize SME credit boost multipliers under a negative output-gap yield curve control?"
+  },
+  {
+    "question_index": 100,
+    "category": "Word salad",
+    "question": "why is the policy rate's sacrifice ratio asymmetric to the geopolitical risk index's real effective hysteresis in monetary velocity?"
+  }
+]

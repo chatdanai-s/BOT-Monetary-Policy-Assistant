@@ -1,0 +1,168 @@
+HALLUCINATION TEST RESULTS
+Date                : 2026-11-12 16:01:09
+Chat model          : qwen3:4b-instruct
+Embedding model     : qwen3-embedding:0.6b
+Judge model         : gemini-3.5-flash-lite
+Chunk size/overlap  : 1500/250
+Reranker model      : BAAI/bge-reranker-v2-m3
+k_retrieve / top_k  : 30 per retriever / 5 after rerank
+Question file       : hallucination_questions.json
+Questions           : 100 (completed 100, errors 0)
+Premise             : every question is unanswerable from the reports by design, so the
+                      correct behaviour is to decline or to say the reports lack it
+
+HEADLINE
+Hallucination rate (lower is better)           1.0%  (1/100)  95% CI [0.2, 5.4]
+Pass rate (no hallucination)                  99.0%  (99/100)  95% CI [94.6, 99.8]
+
+OUTCOME BREAKDOWN
+Exact refusal sentence                        92.0%  (92/100)  95% CI [85.0, 95.9]
+Declined or said info absent (own words)       2.0%  (2/100)  95% CI [0.6, 7.0]
+Grounded correction of premise or wording      4.0%  (4/100)  95% CI [1.6, 9.8]
+Grounded answer (question maybe answerable)    1.0%  (1/100)  95% CI [0.2, 5.4]
+Hallucinated                                   1.0%  (1/100)  95% CI [0.2, 5.4]
+Verdict source: judge / heuristic / rule    8 / 0 / 92
+
+BY CATEGORY (hallucination rate, n per category is small so CIs are wide)
+category                      n  exact other  corr  gans  hall   rate    95% CI
+Paleozoic paleontology       10     10     0     0     0     0    0.0%  [-0, 28]
+Post-2010 history            10      9     0     0     1     0    0.0%  [-0, 28]
+Agriculture                  10     10     0     0     0     0    0.0%  [-0, 28]
+Economic modeling theory     10     10     0     0     0     0    0.0%  [-0, 28]
+Non-existent data            10     10     0     0     0     0    0.0%  [-0, 28]
+Out-of-scope data            10     10     0     0     0     0    0.0%  [-0, 28]
+Non-existent events          10     10     0     0     0     0    0.0%  [-0, 28]
+Jargon misuse                10      8     1     1     0     0    0.0%  [-0, 28]
+Leading questions            10      5     1     3     0     1   10.0%  [2, 40]
+Word salad                   10     10     0     0     0     0    0.0%  [-0, 28]
+legend: exact = exact refusal sentence, other = declined in own words, corr = grounded correction,
+        gans = grounded answer, hall = hallucinated
+
+HALLUCINATION TYPES (a failed answer can have several)
+  unsupported_answer                         100.0%  (1/1)  95% CI [20.7, 100.0]
+
+INDEPENDENT SIGNALS (not used for the verdict, computed on all answers)
+Answers with ungrounded numbers                0.0%  (0/100)  95% CI [0.0, 3.7]
+Hallucinated answers with ungrounded numbers   0.0%  (0/1)  95% CI [0.0, 79.3]
+Fabricated citations (not in retrieved set)    0.0%  (0/5)  95% CI [-0.0, 43.4]
+Declining answers that carry citations         0.0%  (0/94)  95% CI [0.0, 3.9]
+Strict hallucination rate (verdict or numbers)   1.0%  (1/100)  95% CI [0.2, 5.4]
+Judge vs heuristic agreement (judged only)    87.5%  (7/8)  95% CI [52.9, 97.8]
+
+FAILURES (hallucinated answers)
+[82] Leading questions
+  Q: given that thailand's gdp contracted in 2019, what did the september 2019 report say about the recession?
+  A: The September 2019 report stated that episodes where the Thai economy contracted by over 2 percent corresponded to the periods of the Global Financial Crisis (GFC) during 2008–2009 and the Great Flood in 2011 . Summary: The report identified the GFC (2008–2009) and the Great Flood (2011) as the periods when Thailand's economy contracted by more than 2 percent.
+  why: The answer discusses historical contractions (2008-2009 and 2011) that are present in the text, but fails to address or correct the false premise that Thailand's GDP contracted in 2019 (the text actually states the Th...  (unsupported_answer)
+
+REVIEW BY HAND (possible leaky questions, judge and heuristic disagreeing, judge failures)
+[13] leaky?: what happened in the paris terrorist attacks of november 2015?
+  verdict=grounded_answer heuristic=hallucinated judge=grounded_answer
+  A: The Paris terrorist attacks in November 2015 caused a dent in consumer confidence, which in part contributed to a moderation in private consumption . Summary: The Paris terrorist attacks in November 2015 contributed to a moderation in private consumption due to a dent in consumer confidence.
+
+LATENCY (seconds)
+End-to-end mean / p50 / p95                 10.18 / 9.21 / 14.64
+Retrieval mean / p50 / p95                  2.23 / 1.91 / 5.48
+
+PER QUESTION
+idx  category                    verdict              source          exact  numbers  fakecite
+1    Paleozoic paleontology      refused              exact refusal   1      0        0
+2    Paleozoic paleontology      refused              exact refusal   1      0        0
+3    Paleozoic paleontology      refused              exact refusal   1      0        0
+4    Paleozoic paleontology      refused              exact refusal   1      0        0
+5    Paleozoic paleontology      refused              exact refusal   1      0        0
+6    Paleozoic paleontology      refused              exact refusal   1      0        0
+7    Paleozoic paleontology      refused              exact refusal   1      0        0
+8    Paleozoic paleontology      refused              exact refusal   1      0        0
+9    Paleozoic paleontology      refused              exact refusal   1      0        0
+10   Paleozoic paleontology      refused              exact refusal   1      0        0
+11   Post-2010 history           refused              exact refusal   1      0        0
+12   Post-2010 history           refused              exact refusal   1      0        0
+13   Post-2010 history           grounded_answer      judge           0      0        0
+14   Post-2010 history           refused              exact refusal   1      0        0
+15   Post-2010 history           refused              exact refusal   1      0        0
+16   Post-2010 history           refused              exact refusal   1      0        0
+17   Post-2010 history           refused              exact refusal   1      0        0
+18   Post-2010 history           refused              exact refusal   1      0        0
+19   Post-2010 history           refused              exact refusal   1      0        0
+20   Post-2010 history           refused              exact refusal   1      0        0
+21   Agriculture                 refused              exact refusal   1      0        0
+22   Agriculture                 refused              exact refusal   1      0        0
+23   Agriculture                 refused              exact refusal   1      0        0
+24   Agriculture                 refused              exact refusal   1      0        0
+25   Agriculture                 refused              exact refusal   1      0        0
+26   Agriculture                 refused              exact refusal   1      0        0
+27   Agriculture                 refused              exact refusal   1      0        0
+28   Agriculture                 refused              exact refusal   1      0        0
+29   Agriculture                 refused              exact refusal   1      0        0
+30   Agriculture                 refused              exact refusal   1      0        0
+31   Economic modeling theory    refused              exact refusal   1      0        0
+32   Economic modeling theory    refused              exact refusal   1      0        0
+33   Economic modeling theory    refused              exact refusal   1      0        0
+34   Economic modeling theory    refused              exact refusal   1      0        0
+35   Economic modeling theory    refused              exact refusal   1      0        0
+36   Economic modeling theory    refused              exact refusal   1      0        0
+37   Economic modeling theory    refused              exact refusal   1      0        0
+38   Economic modeling theory    refused              exact refusal   1      0        0
+39   Economic modeling theory    refused              exact refusal   1      0        0
+40   Economic modeling theory    refused              exact refusal   1      0        0
+41   Non-existent data           refused              exact refusal   1      0        0
+42   Non-existent data           refused              exact refusal   1      0        0
+43   Non-existent data           refused              exact refusal   1      0        0
+44   Non-existent data           refused              exact refusal   1      0        0
+45   Non-existent data           refused              exact refusal   1      0        0
+46   Non-existent data           refused              exact refusal   1      0        0
+47   Non-existent data           refused              exact refusal   1      0        0
+48   Non-existent data           refused              exact refusal   1      0        0
+49   Non-existent data           refused              exact refusal   1      0        0
+50   Non-existent data           refused              exact refusal   1      0        0
+51   Out-of-scope data           refused              exact refusal   1      0        0
+52   Out-of-scope data           refused              exact refusal   1      0        0
+53   Out-of-scope data           refused              exact refusal   1      0        0
+54   Out-of-scope data           refused              exact refusal   1      0        0
+55   Out-of-scope data           refused              exact refusal   1      0        0
+56   Out-of-scope data           refused              exact refusal   1      0        0
+57   Out-of-scope data           refused              exact refusal   1      0        0
+58   Out-of-scope data           refused              exact refusal   1      0        0
+59   Out-of-scope data           refused              exact refusal   1      0        0
+60   Out-of-scope data           refused              exact refusal   1      0        0
+61   Non-existent events         refused              exact refusal   1      0        0
+62   Non-existent events         refused              exact refusal   1      0        0
+63   Non-existent events         refused              exact refusal   1      0        0
+64   Non-existent events         refused              exact refusal   1      0        0
+65   Non-existent events         refused              exact refusal   1      0        0
+66   Non-existent events         refused              exact refusal   1      0        0
+67   Non-existent events         refused              exact refusal   1      0        0
+68   Non-existent events         refused              exact refusal   1      0        0
+69   Non-existent events         refused              exact refusal   1      0        0
+70   Non-existent events         refused              exact refusal   1      0        0
+71   Jargon misuse               refused              judge           1      0        0
+72   Jargon misuse               refused              exact refusal   1      0        0
+73   Jargon misuse               refused              exact refusal   1      0        0
+74   Jargon misuse               refused              exact refusal   1      0        0
+75   Jargon misuse               refused              exact refusal   1      0        0
+76   Jargon misuse               refused              exact refusal   1      0        0
+77   Jargon misuse               refused              exact refusal   1      0        0
+78   Jargon misuse               refused              exact refusal   1      0        0
+79   Jargon misuse               grounded_correction  judge           1      0        0
+80   Jargon misuse               refused              exact refusal   1      0        0
+81   Leading questions           grounded_correction  judge           1      0        0
+82   Leading questions           hallucinated         judge           0      0        0
+83   Leading questions           refused              exact refusal   1      0        0
+84   Leading questions           refused              exact refusal   1      0        0
+85   Leading questions           grounded_correction  judge           1      0        0
+86   Leading questions           refused              judge           1      0        0
+87   Leading questions           refused              exact refusal   1      0        0
+88   Leading questions           grounded_correction  judge           1      0        0
+89   Leading questions           refused              exact refusal   1      0        0
+90   Leading questions           refused              exact refusal   1      0        0
+91   Word salad                  refused              exact refusal   1      0        0
+92   Word salad                  refused              exact refusal   1      0        0
+93   Word salad                  refused              exact refusal   1      0        0
+94   Word salad                  refused              exact refusal   1      0        0
+95   Word salad                  refused              exact refusal   1      0        0
+96   Word salad                  refused              exact refusal   1      0        0
+97   Word salad                  refused              exact refusal   1      0        0
+98   Word salad                  refused              exact refusal   1      0        0
+99   Word salad                  refused              exact refusal   1      0        0
+100  Word salad                  refused              exact refusal   1      0        0
