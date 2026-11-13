@@ -1,4 +1,4 @@
-From the generated answer_sample.txt, use the provideed sampled chunks annd the PROMPT to generate USABLE question-answer pairs as JSON table I can open and read in notepad with the following columns:
+From the generated answer_sample.txt, use the provideed sampled chunks and the PROMPT to generate USABLE question-answer pairs as JSON table I can open and read in notepad with the following columns:
 question_index, question, answer, citation, cited_chunk
 
 Also, use the following considerations:
