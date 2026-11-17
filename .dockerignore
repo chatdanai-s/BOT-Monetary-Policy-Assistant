@@ -1,0 +1,8 @@
+.git
+.vscode
+__pycache__
+chroma_db
+documents
+tests
+.env
+*.md

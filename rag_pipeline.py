@@ -34,8 +34,9 @@ from langchain_ollama import ChatOllama
 
 # --- Configuration ---
 SCRIPT_DIR = Path(__file__).resolve().parent
-DOCS_DIR = str(SCRIPT_DIR / "documents")          # Put your PDFs and files here
-CHROMA_DIR = str(SCRIPT_DIR / "chroma_db")        # Where vectors are saved
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+DOCS_DIR = os.getenv("DOCS_DIR", str(SCRIPT_DIR / "documents"))
+CHROMA_DIR = os.getenv("CHROMA_DIR", str(SCRIPT_DIR / "chroma_db"))
 EMBED_MODEL = "qwen3-embedding:0.6b"        # Embedding model (adjustable)
 CHAT_MODEL = "qwen3:4b-instruct"            # Chat model (adjustable)
 RERANK_MODEL = "BAAI/bge-reranker-v2-m3"    # Reranking model (adjustable)
@@ -77,13 +78,13 @@ def build_vector_store():
 
     vector_store = Chroma(
         collection_name=COLLECTION_NAME,
-        embedding_function=OllamaEmbeddings(model=EMBED_MODEL),
+        embedding_function=OllamaEmbeddings(model=EMBED_MODEL, base_url=OLLAMA_HOST),
         persist_directory=CHROMA_DIR,
     )
     vector_store.delete_collection()
     vector_store = Chroma(
         collection_name=COLLECTION_NAME,
-        embedding_function=OllamaEmbeddings(model=EMBED_MODEL),
+        embedding_function=OllamaEmbeddings(model=EMBED_MODEL, base_url=OLLAMA_HOST),
         persist_directory=CHROMA_DIR,
     )
     BATCH_SIZE = 32
@@ -110,7 +111,7 @@ def load_vector_store():
     """Load an existing vector store from disk."""
     return Chroma(
         collection_name=COLLECTION_NAME,
-        embedding_function=OllamaEmbeddings(model=EMBED_MODEL),
+        embedding_function=OllamaEmbeddings(model=EMBED_MODEL, base_url=OLLAMA_HOST),
         persist_directory=CHROMA_DIR,
     )
 
@@ -204,21 +205,18 @@ def format_docs(docs):
     )
 
 
-def query_documents(retrieve, question, k_retrieve=K_RETRIEVE, top_k=TOP_K):
-    """Run a citation-grounded RAG query against BOT Monetary Policy Reports."""
+# Initialize LLM
+LLM = ChatOllama(
+    model=CHAT_MODEL,
+    base_url=OLLAMA_HOST,
+    temperature=0,
+    think=False,
+    keep_alive="30m",
+    num_ctx=8192,
+)
 
-    # Initialize LLM
-    llm = ChatOllama(
-        model=CHAT_MODEL,
-        temperature=0,
-        think=False,
-        keep_alive="30m",
-        num_ctx=8192,
-    )
-
-    # Prompt template for RAG system
-    prompt = ChatPromptTemplate.from_template(
-            """
+PROMPT = ChatPromptTemplate.from_template(
+    """
 You are an expert financial and research assistant specializing in Thailand's
 monetary policy and macroeconomy.
 
@@ -249,21 +247,30 @@ QUESTION
 
 ANSWER
 """
-    )
+)
 
-    # Build the RAG chain
-    chain = (
-        {"context": RunnableLambda(lambda q: retrieve(q, k_retrieve, top_k)) | format_docs,
-         "question": RunnablePassthrough(),
-         "today": lambda _: datetime.now().strftime('%Y %B %d')
-        }
-        | prompt
-        | llm
-        | StrOutputParser()
-    )
+CHAIN = PROMPT | LLM | StrOutputParser()
 
-    # Stream output tokens to the console
-    for token in chain.stream(question):
+
+def _inputs(question, docs):
+    return {
+        "context": format_docs(docs),
+        "question": question,
+        "today": datetime.now().strftime("%Y %B %d"),
+    }
+
+def generate_answer(question, docs):
+    """Return the full answer as a string (used by the API)."""
+    return CHAIN.invoke(_inputs(question, docs))
+
+def stream_answer(question, docs):
+    """Yield answer tokens (used by the CLI and the streaming API endpoint)."""
+    yield from CHAIN.stream(_inputs(question, docs))
+
+def query_documents(retrieve, question, k_retrieve=K_RETRIEVE, top_k=TOP_K):
+    """CLI usage: retrieve chunks, then stream the answer to the console."""
+    docs = retrieve(question, k_retrieve, top_k)
+    for token in stream_answer(question, docs):
         print(token, end="", flush=True)
     print()
 

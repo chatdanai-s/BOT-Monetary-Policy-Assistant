@@ -46,7 +46,7 @@ The assistant runs locally through Ollama and HuggingFace with zero API costs. T
 | **LLM** | Ollama + `qwen3:4b-instruct` |
 | **Evaluation Judge** | `gemini-3.5-flash-lite` (free tier API) |
 | **Data Source** | BOT Monetary Policy Reports (PDF) |
-| **Programming Language** | Python |
+| **Programming Language** | Python 3.10 |
 
 ## File Structure
 
